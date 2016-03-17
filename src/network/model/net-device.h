@@ -37,6 +37,7 @@ namespace ns3 {
 class Node;
 class Channel;
 class Packet;
+class QueueLimits;
 
 /**
  * \ingroup network
@@ -195,9 +196,17 @@ public:
    */
   virtual bool HasWakeCallbackSet (void) const;
 
+  /* static */ void netdev_tx_sent_queue (uint32_t bytes);
+
+  /* static */ void netdev_tx_completed_queue (uint32_t pkts, uint32_t bytes);
+
+  /* static */ void netdev_tx_reset_queue ();
+
 private:
   bool m_stopped;   //!< Status of the transmission queue
   WakeCallback m_wakeCallback;   //!< Wake callback
+  Ptr<QueueLimits> m_queueLimits;
+  bool m_stoppedQueueLimits;
 };
 
 
