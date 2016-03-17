@@ -290,13 +290,20 @@ PointToPointNetDevice::TransmitComplete (void)
   NS_ASSERT_MSG (m_currentPkt != 0, "PointToPointNetDevice::TransmitComplete(): m_currentPkt zero");
 
   m_phyTxEndTrace (m_currentPkt);
-  m_currentPkt = 0;
 
   Ptr<NetDeviceQueue> txq;
   if (m_queueInterface)
   {
     txq = m_queueInterface->GetTxQueue (0);
   }
+
+  if (txq)
+    {
+      /* Inform BQL */
+      txq->netdev_tx_completed_queue (1, m_currentPkt->GetSize ());
+    }
+
+  m_currentPkt = 0;
 
   Ptr<QueueItem> item = m_queue->Dequeue ();
   if (item == 0)
@@ -583,6 +590,8 @@ PointToPointNetDevice::Send (
       // If the queue is not able to store another packet, stop the queue
       if (txq)
         {
+          /* Inform BQL */
+          txq->netdev_tx_sent_queue (packet->GetSize ());
           if ((m_queue->GetMode () == Queue::QUEUE_MODE_PACKETS &&
                m_queue->GetNPackets () >= m_queue->GetMaxPackets ()) ||
               (m_queue->GetMode () == Queue::QUEUE_MODE_BYTES &&
