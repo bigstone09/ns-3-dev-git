@@ -299,6 +299,7 @@ def build(bld):
         'model/valgrind.h',
         'model/non-copyable.h',
         'model/build-profile.h',
+        'model/linux-list.h',
         ]
 
     if sys.platform == 'win32':
