@@ -22,6 +22,9 @@
 
 #include "ns3/log.h"
 #include "ns3/enum.h"
+#include "ns3/tcp-header.h"
+#include "ns3/udp-header.h"
+#include "ns3/hash.h"
 #include "ipv4-queue-disc-item.h"
 #include "ipv4-packet-filter.h"
 
@@ -188,6 +191,77 @@ PfifoFastIpv4PacketFilter::DscpToBand (Ipv4Header::DscpType dscpType) const
   }
   NS_LOG_DEBUG ("Band returned:  " << band);
   return band;
+}
+
+// ------------------------------------------------------------------------- //
+
+NS_OBJECT_ENSURE_REGISTERED (FQCoDelIpv4PacketFilter);
+
+TypeId
+FQCoDelIpv4PacketFilter::GetTypeId (void)
+{
+  static TypeId tid = TypeId ("ns3::FQCoDelIpv4PacketFilter")
+    .SetParent<Ipv4PacketFilter> ()
+    .SetGroupName ("Internet")
+    .AddConstructor<FQCoDelIpv4PacketFilter> ()
+  ;
+  return tid;
+}
+
+FQCoDelIpv4PacketFilter::FQCoDelIpv4PacketFilter ()
+{
+  NS_LOG_FUNCTION (this);
+}
+
+FQCoDelIpv4PacketFilter::~FQCoDelIpv4PacketFilter ()
+{
+  NS_LOG_FUNCTION (this);
+}
+
+int32_t
+FQCoDelIpv4PacketFilter::DoClassify (Ptr< QueueDiscItem > item) const
+{
+  // in Linux occurs the jhash2 (jenkins hash) of the skb
+  NS_LOG_FUNCTION (this << item);
+  Ptr<Ipv4QueueDiscItem> ipv4Item = DynamicCast<Ipv4QueueDiscItem> (item);
+
+  NS_ASSERT (ipv4Item != 0);
+
+  Ipv4Header hdr = ipv4Item->GetHeader ();
+  uint32_t src = hdr.GetSource ().Get (); // get the uint32_t of the IP address
+  uint32_t dest = hdr.GetDestination ().Get ();
+  uint8_t prot = hdr.GetProtocol ();
+  ///\note 6 for TCP, 17 for UDP
+
+  TcpHeader tcpHdr;
+  UdpHeader udpHdr;
+  uint16_t srcPort = 0;
+  uint16_t destPort = 0;
+
+  Ptr<Packet> pkt = ipv4Item->GetPacket ();
+
+  if (prot == 6) // TCP
+    {
+      pkt->PeekHeader (tcpHdr);
+      srcPort = tcpHdr.GetSourcePort ();
+      destPort = tcpHdr.GetDestinationPort ();
+    }
+  else if (prot == 17) // UDP
+    {
+      pkt->PeekHeader (udpHdr);
+      srcPort = udpHdr.GetSourcePort ();
+      destPort = udpHdr.GetDestinationPort ();
+    }
+
+  ///\note std::to_string (...) is not a member of std
+  std::stringstream stream;
+  stream << src + dest + prot + srcPort + destPort;
+
+  uint32_t hash = Hash32 (stream.str()); // murmur3 hash
+
+  NS_LOG_DEBUG ("Found Ipv4 packet; hash of the five tuple " << hash);
+
+  return hash;
 }
 
 } // namespace ns3
