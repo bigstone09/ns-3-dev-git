@@ -41,7 +41,7 @@ Fq_CoDelSlot::Fq_CoDelSlot () :
   h(0)
 {
   NS_LOG_FUNCTION (this);
-  INIT_LIST_HEAD(&flowchain);
+  /* INIT_LIST_HEAD(&flowchain); */
   q = CreateObject<CoDelQueueDisc> ();
   q->Initialize (); // to check config and create the internal queue
 }
@@ -88,8 +88,8 @@ Fq_CoDelQueue::Fq_CoDelQueue () :
   /* peturbation (psource.GetInteger(0,std::numeric_limits<std::size_t>::max())) */ ///\todo SIGSEGV
 {
   NS_LOG_FUNCTION (this);
-  INIT_LIST_HEAD(&m_new_flows);
-  INIT_LIST_HEAD(&m_old_flows);
+  /* INIT_LIST_HEAD(&m_new_flows); */
+  /* INIT_LIST_HEAD(&m_old_flows); */
 }
 
 Fq_CoDelQueue::~Fq_CoDelQueue ()
@@ -133,13 +133,16 @@ Fq_CoDelQueue::DoEnqueue (Ptr<QueueDiscItem> item)
   NS_LOG_FUNCTION (this << item);
   bool queued;
 
-  Fq_CoDelSlot *slot;
+  /* Fq_CoDelSlot *slot; */
+  Ptr<Fq_CoDelSlot> slot;
 
   /* std::size_t h = Fq_CoDelQueue::hash(p);
   NS_LOG_DEBUG ("fq_codel enqueue use queue "<<h); */
-  std::size_t h = Classify (item) % m_divisor;
-  NS_LOG_DEBUG ("Enqueues into slot " << (int32_t) h);
-  
+  uint32_t h = Classify (item) % m_divisor;
+  NS_LOG_DEBUG ("Enqueues into slot " << h);
+
+  bool slotInFlows = false;
+
   if (m_ht[h] == NULL)
     {
       NS_LOG_DEBUG ("fq_codel enqueue Create queue " << h);
@@ -151,6 +154,7 @@ Fq_CoDelQueue::DoEnqueue (Ptr<QueueDiscItem> item)
   else 
     {
       slot = m_ht[h];
+      slotInFlows = true;
     }
 
   queued = slot->q->Enqueue(item);
@@ -160,11 +164,17 @@ Fq_CoDelQueue::DoEnqueue (Ptr<QueueDiscItem> item)
       slot->backlog += item->GetPacketSize();
       backlog += item->GetPacketSize();
 
-      if (list_empty(&slot->flowchain)) {
+      /* if (list_empty(&slot->flowchain)) {
         NS_LOG_DEBUG ("fq_codel enqueue inactive queue "<<h);
         list_add_tail(&slot->flowchain, &m_new_flows); // add the slot->flowchain to the m_new_flows
         slot->deficit = m_quantum;
-      }
+      } */
+      if (!slotInFlows)
+        {
+	  NS_LOG_DEBUG ("fq_codel enqueue inactive queue "<<h);
+	  slot->deficit = m_quantum;
+	  m_newFlows.push_back (slot);
+        }
     }
   else
     {
@@ -178,17 +188,33 @@ Ptr<QueueDiscItem>
 Fq_CoDelQueue::DoDequeue (void)
 {
   NS_LOG_FUNCTION (this);
-  Fq_CoDelSlot *flow;
-  struct list_head *head;
+  /* Fq_CoDelSlot *flow; */
+  /* struct list_head *head; */
+
+  Ptr<Fq_CoDelSlot> flow;
 
 begin:
-  head = &m_new_flows;
+  /* head = &m_new_flows;
   if (list_empty(head)) {
     head = &m_old_flows;
     if (list_empty(head))
       return NULL;
-  }
-  flow = list_first_entry(head, Fq_CoDelSlot, flowchain); // offsetof_hack
+  } */
+
+  /* flow = list_first_entry(head, Fq_CoDelSlot, flowchain); // offsetof_hack */
+
+  if (!m_newFlows.empty ())
+    {
+      flow = m_newFlows.front ();
+    }
+  else if (!m_oldFlows.empty ())
+    {
+      flow = m_oldFlows.front ();
+    }
+  else
+    {
+      return 0;
+    }
 
   NS_LOG_DEBUG ("fq_codel scan "<<flow->h);
 
@@ -196,7 +222,17 @@ begin:
     {
       flow->deficit += m_quantum;
       NS_LOG_DEBUG ("fq_codel deficit now "<<flow->deficit<<" "<<flow->h);
-      list_move_tail(&flow->flowchain, &m_old_flows); // move flow->flowchain to m_old_flows
+      /* list_move_tail(&flow->flowchain, &m_old_flows); // move flow->flowchain to m_old_flows */
+      if (!m_newFlows.empty ())
+        {
+	  m_oldFlows.push_back (m_newFlows.front ());
+	  m_newFlows.pop_front ();
+	}
+      else
+        {
+	  m_oldFlows.push_back (m_oldFlows.front ());
+	  m_oldFlows.pop_front ();
+	}
       goto begin;
     }
 
@@ -204,10 +240,22 @@ begin:
   if (item == NULL)
     {
       /* force a pass through old_flows to prevent starvation */
-      if ((head == &m_new_flows) && !list_empty(&m_old_flows))
+      /* if ((head == &m_new_flows) && !list_empty(&m_old_flows))
         list_move_tail(&flow->flowchain, &m_old_flows);
       else
         list_del_init(&flow->flowchain); // delete item and reinitialize
+      goto begin; */
+      if (!m_newFlows.empty ())
+        {
+	  m_oldFlows.push_back (m_newFlows.front ());
+	  m_newFlows.pop_front ();
+	}
+      else
+        {
+	  // the queue must be removed from the list
+	  m_ht[m_oldFlows.front ()->h] = 0; // remove reference from the m_ht
+	  m_oldFlows.pop_front ();
+	}
       goto begin;
 
     }
@@ -225,7 +273,7 @@ Fq_CoDelQueue::DoPeek (void) const
 {
   NS_LOG_FUNCTION (this);
 
-  struct list_head *head;
+  /* struct list_head *head;
 
   head = &m_new_flows;
   if (list_empty(head)) {
@@ -233,7 +281,22 @@ Fq_CoDelQueue::DoPeek (void) const
     if (list_empty(head))
       return 0;
   }
-  return list_first_entry(head, Fq_CoDelSlot, flowchain)->q->Peek();
+  return list_first_entry(head, Fq_CoDelSlot, flowchain)->q->Peek(); */
+
+  Ptr<Fq_CoDelSlot> flow;
+  if (!m_newFlows.empty ())
+    {
+      flow = m_newFlows.front ();
+    }
+  else if (!m_oldFlows.empty ())
+    {
+      flow = m_oldFlows.front ();
+    }
+  else
+    {
+      return 0; 
+    }
+  return flow->q->Peek ();
 }
 
 bool
