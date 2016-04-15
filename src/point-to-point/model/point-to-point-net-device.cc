@@ -311,13 +311,20 @@ PointToPointNetDevice::TransmitComplete (void)
 
   //
   // Got another packet off of the queue, so start the transmit process again.
-  // If the queue was stopped, start it again. Note that we cannot wake the upper
-  // layers because otherwise a packet is sent to the device while the machine
-  // state is busy, thus causing the assert in TransmitStart to fail.
+  // If the queue was stopped, start it again if there is room for another packet.
+  // Note that we cannot wake the upper layers because otherwise a packet is sent
+  // to the device while the machine state is busy, thus causing the assert in
+  // TransmitStart to fail.
   //
   if (txq && txq->IsStopped ())
     {
-      txq->Start ();
+      if ((m_queue->GetMode () == Queue::QUEUE_MODE_PACKETS &&
+           m_queue->GetNPackets () < m_queue->GetMaxPackets ()) ||
+          (m_queue->GetMode () == Queue::QUEUE_MODE_BYTES &&
+           m_queue->GetNBytes () + m_mtu <= m_queue->GetMaxBytes ()))
+        {
+          txq->Start ();
+        }
     }
   Ptr<Packet> p = item->GetPacket ();
   m_snifferTrace (p);
@@ -573,6 +580,18 @@ PointToPointNetDevice::Send (
   //
   if (m_queue->Enqueue (Create<QueueItem> (packet)))
     {
+      // If the queue is not able to store another packet, stop the queue
+      if (txq)
+        {
+          if ((m_queue->GetMode () == Queue::QUEUE_MODE_PACKETS &&
+               m_queue->GetNPackets () >= m_queue->GetMaxPackets ()) ||
+              (m_queue->GetMode () == Queue::QUEUE_MODE_BYTES &&
+               m_queue->GetNBytes () + m_mtu > m_queue->GetMaxBytes ()))
+            {
+              txq->Stop ();
+            }
+        }
+
       //
       // If the channel is ready for transition we send the packet right now
       // 
@@ -586,11 +605,13 @@ PointToPointNetDevice::Send (
       return true;
     }
 
-  // Enqueue may fail (overflow). Stop the tx queue, so that the upper layers
+  // Enqueue may fail (overflow). This should not happen if the traffic control
+  // module has been installed. Anyway, stop the tx queue, so that the upper layers
   // do not send packets until there is room in the queue again.
   m_macTxDropTrace (packet);
   if (txq)
   {
+    NS_LOG_ERROR ("BUG! Device queue full when the queue is not stopped!");
     txq->Stop ();
   }
   return false;
