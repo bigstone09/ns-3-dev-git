@@ -18,6 +18,7 @@
  *
  * Authors:  Stefano Avallone <stavallo@unina.it>
  *           Tom Henderson <tomhend@u.washington.edu>
+ *           Pasquale Imputato <p.imputato@gmail.com>
  */
 
 #ifndef IPV4_PACKET_FILTER_H
@@ -164,6 +165,31 @@ private:
   uint32_t DscpToBand (Ipv4Header::DscpType dscpType) const;
 
   Ipv4TrafficClassMode m_trafficClassMode; //!< traffic class mode
+};
+
+
+/**
+ * \ingroup internet
+ *
+ * FQCoDelIpv4PacketFilter is the filter to be added to the FQCoDel
+ * queue disc to simulate the behavior of the fq-codel Linux queue disc.
+ *
+ */
+class FQCoDelIpv4PacketFilter : public Ipv4PacketFilter {
+public:
+  /**
+   * \brief Get the type ID.
+   * \return the object TypeId
+   */
+  static TypeId GetTypeId (void);
+
+  FQCoDelIpv4PacketFilter ();
+  virtual ~FQCoDelIpv4PacketFilter ();
+
+private:
+  virtual int32_t DoClassify (Ptr<QueueDiscItem> item) const;
+
+  uint32_t m_perturbation; //!< hash perturbation value
 };
 
 } // namespace ns3

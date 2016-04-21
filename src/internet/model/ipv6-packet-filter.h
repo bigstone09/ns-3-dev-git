@@ -18,6 +18,7 @@
  *
  * Authors:  Stefano Avallone <stavallo@unina.it>
  *           Tom Henderson <tomhend@u.washington.edu>
+ *           Pasquale Imputato <p.imputato@gmail.com>
  */
 
 #ifndef IPV6_PACKET_FILTER_H
@@ -106,6 +107,31 @@ private:
    * \returns The converted band value.
    */
   uint32_t DscpToBand (Ipv6Header::DscpType dscpType) const;
+};
+
+
+/**
+ * \ingroup internet
+ *
+ * FQCoDelIpv6PacketFilter is the filter to be added to the FQCoDel
+ * queue disc to simulate the behavior of the fq-codel Linux queue disc.
+ *
+ */
+class FQCoDelIpv6PacketFilter : public Ipv6PacketFilter {
+public:
+  /**
+   * \brief Get the type ID.
+   * \return the object TypeId
+   */
+  static TypeId GetTypeId (void);
+
+  FQCoDelIpv6PacketFilter ();
+  virtual ~FQCoDelIpv6PacketFilter ();
+
+private:
+  virtual int32_t DoClassify (Ptr<QueueDiscItem> item) const;
+
+  uint32_t m_perturbation; //!< hash perturbation value
 };
 
 } // namespace ns3
