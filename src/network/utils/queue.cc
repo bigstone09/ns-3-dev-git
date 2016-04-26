@@ -158,6 +158,33 @@ Queue::Dequeue (void)
   return item;
 }
 
+bool
+Queue::Remove (void)
+{
+  NS_LOG_FUNCTION (this);
+
+  if (m_nPackets.Get () == 0)
+    {
+      NS_LOG_LOGIC ("Queue empty");
+      return false;
+    }
+
+  Ptr<QueueItem> item = DoRemove ();
+
+  if (item != 0)
+    {
+      NS_ASSERT (m_nBytes.Get () >= item->GetPacketSize ());
+      NS_ASSERT (m_nPackets.Get () > 0);
+
+      m_nBytes -= item->GetPacketSize ();
+      m_nPackets--;
+
+      Drop (item);
+      return true;
+    }
+  return false;
+}
+
 void
 Queue::DequeueAll (void)
 {
