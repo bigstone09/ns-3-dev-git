@@ -157,7 +157,6 @@ std::ostream& operator<< (std::ostream& os, const QueueItem &item);
  * stopped or not) and data used by techniques such as Byte Queue Limits.
  *
  * This class roughly models the struct netdev_queue of Linux.
- * \todo Implement BQL
  */
 class NetDeviceQueue : public SimpleRefCount<NetDeviceQueue>
 {
