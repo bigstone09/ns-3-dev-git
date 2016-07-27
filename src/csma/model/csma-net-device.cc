@@ -217,7 +217,25 @@ CsmaNetDevice::DoDispose ()
   NS_LOG_FUNCTION_NOARGS ();
   m_channel = 0;
   m_node = 0;
+  m_queueInterface = 0;
   NetDevice::DoDispose ();
+}
+
+void
+CsmaNetDevice::NotifyNewAggregate (void)
+{
+  NS_LOG_FUNCTION (this);
+  if (m_queueInterface == 0)
+    {
+      Ptr<NetDeviceQueueInterface> ndqi = this->GetObject<NetDeviceQueueInterface> ();
+      //verify that it's a valid netdevice queue interface and that
+      //the netdevice queue interface was not set before
+      if (ndqi != 0)
+        {
+          m_queueInterface = ndqi;
+        }
+    }
+  NetDevice::NotifyNewAggregate ();
 }
 
 void
@@ -546,20 +564,31 @@ CsmaNetDevice::TransmitAbort (void)
 
   NS_ASSERT_MSG (m_txMachineState == BACKOFF, "Must be in BACKOFF state to abort.  Tx state is: " << m_txMachineState);
 
-  // 
+  //
   // We're done with that one, so reset the backoff algorithm and ready the
   // transmit state machine.
   //
   m_backoff.ResetBackoffTime ();
   m_txMachineState = READY;
 
+  Ptr<NetDeviceQueue> txq;
+  if (m_queueInterface)
+  {
+    txq = m_queueInterface->GetTxQueue (0);
+  }
+
   //
   // If there is another packet on the input queue, we need to start trying to 
-  // get that out.  If the queue is empty we just wait until someone puts one
-  // in.
+  // get that out.  If the queue is empty, wake the queue disc.
   //
   if (m_queue->IsEmpty ())
     {
+      if (txq)
+      {
+        NS_LOG_DEBUG ("The device queue is being woken up (" << m_queue->GetNPackets () <<
+                      " packets and " << m_queue->GetNBytes () << " bytes inside)");
+        txq->Wake ();
+      }
       return;
     }
   else
@@ -570,6 +599,22 @@ CsmaNetDevice::TransmitAbort (void)
       m_snifferTrace (m_currentPkt);
       m_promiscSnifferTrace (m_currentPkt);
       TransmitStart ();
+      // We have dequeued a packet, inform BQL and start the queue if there room
+      // for another packet
+      if (txq)
+        {
+          txq->NotifyTransmittedBytes (m_currentPkt->GetSize ());
+
+          if ((m_queue->GetMode () == Queue::QUEUE_MODE_PACKETS &&
+                m_queue->GetNPackets () < m_queue->GetMaxPackets ()) ||
+              (m_queue->GetMode () == Queue::QUEUE_MODE_BYTES &&
+                m_queue->GetNBytes () + m_mtu <= m_queue->GetMaxBytes ()))
+            {
+              NS_LOG_DEBUG ("The device queue is being started (" << m_queue->GetNPackets () <<
+                            " packets and " << m_queue->GetNBytes () << " bytes inside)");
+              txq->Start ();
+            }
+        }
     }
 }
 
@@ -624,11 +669,23 @@ CsmaNetDevice::TransmitReadyEvent (void)
   //
   NS_ASSERT_MSG (m_currentPkt == 0, "CsmaNetDevice::TransmitReadyEvent(): m_currentPkt nonzero");
 
+  Ptr<NetDeviceQueue> txq;
+  if (m_queueInterface)
+  {
+    txq = m_queueInterface->GetTxQueue (0);
+  }
+
   //
   // Get the next packet from the queue for transmitting
   //
   if (m_queue->IsEmpty ())
     {
+      if (txq)
+      {
+        NS_LOG_DEBUG ("The device queue is being woken up (" << m_queue->GetNPackets () <<
+                      " packets and " << m_queue->GetNBytes () << " bytes inside)");
+        txq->Wake ();
+      }
       return;
     }
   else
@@ -639,6 +696,22 @@ CsmaNetDevice::TransmitReadyEvent (void)
       m_snifferTrace (m_currentPkt);
       m_promiscSnifferTrace (m_currentPkt);
       TransmitStart ();
+      // We have dequeued a packet, inform BQL and start the queue if there room
+      // for another packet
+      if (txq)
+        {
+          txq->NotifyTransmittedBytes (m_currentPkt->GetSize ());
+
+          if ((m_queue->GetMode () == Queue::QUEUE_MODE_PACKETS &&
+                m_queue->GetNPackets () < m_queue->GetMaxPackets ()) ||
+              (m_queue->GetMode () == Queue::QUEUE_MODE_BYTES &&
+                m_queue->GetNBytes () + m_mtu <= m_queue->GetMaxBytes ()))
+            {
+              NS_LOG_DEBUG ("The device queue is being started (" << m_queue->GetNPackets () <<
+                            " packets and " << m_queue->GetNBytes () << " bytes inside)");
+              txq->Start ();
+            }
+        }
     }
 }
 
@@ -960,6 +1033,14 @@ CsmaNetDevice::SendFrom (Ptr<Packet> packet, const Address& src, const Address& 
       return false;
     }
 
+  Ptr<NetDeviceQueue> txq;
+  if (m_queueInterface)
+  {
+    txq = m_queueInterface->GetTxQueue (0);
+  }
+
+  NS_ASSERT_MSG (!txq || !txq->IsStopped (), "Send should not be called when the device is stopped");
+
   Mac48Address destination = Mac48Address::ConvertFrom (dest);
   Mac48Address source = Mac48Address::ConvertFrom (src);
   AddHeader (packet, source, destination, protocolNumber);
@@ -972,8 +1053,33 @@ CsmaNetDevice::SendFrom (Ptr<Packet> packet, const Address& src, const Address& 
   //
   if (m_queue->Enqueue (Create<QueueItem> (packet)) == false)
     {
+      // Enqueue may fail (overflow). This should not happen if the traffic control
+      // module has been installed. Anyway, stop the tx queue, so that the upper layers
+      // do not send packets until there is room in the queue again.
       m_macTxDropTrace (packet);
+      if (txq)
+      {
+        NS_LOG_ERROR ("BUG! Device queue full when the queue is not stopped! (" << m_queue->GetNPackets () <<
+                      " packets and " << m_queue->GetNBytes () << " bytes inside)");
+        txq->Stop ();
+      }
       return false;
+    }
+
+  // The packet has been enqueued, inform BQL and stop the queue if it is full
+  if (txq)
+    {
+      txq->NotifyQueuedBytes (packet->GetSize ());
+
+      if ((m_queue->GetMode () == Queue::QUEUE_MODE_PACKETS &&
+           m_queue->GetNPackets () >= m_queue->GetMaxPackets ()) ||
+          (m_queue->GetMode () == Queue::QUEUE_MODE_BYTES &&
+           m_queue->GetNBytes () + m_mtu > m_queue->GetMaxBytes ()))
+        {
+          NS_LOG_DEBUG ("The device queue is being stopped (" << m_queue->GetNPackets () <<
+                        " packets and " << m_queue->GetNBytes () << " bytes inside)");
+          txq->Stop ();
+        }
     }
 
   //
@@ -991,6 +1097,22 @@ CsmaNetDevice::SendFrom (Ptr<Packet> packet, const Address& src, const Address& 
           m_promiscSnifferTrace (m_currentPkt);
           m_snifferTrace (m_currentPkt);
           TransmitStart ();
+          // We have dequeued a packet, inform BQL and start the queue if there room
+          // for another packet
+          if (txq)
+            {
+              txq->NotifyTransmittedBytes (m_currentPkt->GetSize ());
+
+              if ((m_queue->GetMode () == Queue::QUEUE_MODE_PACKETS &&
+                   m_queue->GetNPackets () < m_queue->GetMaxPackets ()) ||
+                  (m_queue->GetMode () == Queue::QUEUE_MODE_BYTES &&
+                   m_queue->GetNBytes () + m_mtu <= m_queue->GetMaxBytes ()))
+                {
+                  NS_LOG_DEBUG ("The device queue is being started (" << m_queue->GetNPackets () <<
+                                " packets and " << m_queue->GetNBytes () << " bytes inside)");
+                  txq->Start ();
+                }
+            }
         }
     }
   return true;

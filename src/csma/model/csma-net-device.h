@@ -356,6 +356,8 @@ protected:
    */
   void AddHeader (Ptr<Packet> p, Mac48Address source, Mac48Address dest, uint16_t protocolNumber);
 
+  virtual void NotifyNewAggregate (void);
+
 private:
 
   /**
@@ -687,6 +689,11 @@ private:
    * The MAC address which has been assigned to this device.
    */
   Mac48Address m_address;
+
+  /**
+   * The NetDevice queue interface aggregated to this device.
+   */
+  Ptr<NetDeviceQueueInterface> m_queueInterface;
 
   /**
    * The callback used to notify higher layers that a packet has been received.
