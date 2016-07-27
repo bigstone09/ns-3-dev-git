@@ -37,6 +37,7 @@ namespace ns3 {
 class Node;
 class Channel;
 class Packet;
+class QueueLimits;
 
 /**
  * \ingroup network
@@ -207,9 +208,40 @@ public:
    */
   virtual void SetWakeCallback (WakeCallback cb);
 
+  /**
+   * \brief Report the number of bytes queued to the device queue
+   * \param bytes number of bytes queued to the device queue
+   */
+  void NotifyQueuedBytes (uint32_t bytes);
+
+  /**
+   * \brief Report the number of bytes transmitted by device
+   * \param bytes number of bytes transmitted by device
+   */
+  void NotifyTransmittedBytes (uint32_t bytes);
+
+  /**
+   * \brief Reset queue limits state
+   */
+  void ResetQueueLimits ();
+
+  /**
+   * \brief Set queue limits to this queue
+   * \param ql the queue limits associated to this queue
+   */
+  void SetQueueLimits (Ptr<QueueLimits> ql);
+
+  /**
+   * \brief Get queue limits to this queue
+   * \return the queue limits associated to this queue
+   */
+  Ptr<QueueLimits> GetQueueLimits ();
+
 private:
-  bool m_stopped;   //!< Status of the transmission queue
-  WakeCallback m_wakeCallback;   //!< Wake callback
+  bool m_stoppedByDevice;         //!< Status of the transmission queue by device
+  bool m_stoppedByQueueLimits;    //!< Status of the trasmissione queue by queue limits
+  Ptr<QueueLimits> m_queueLimits; //!< Queue limits
+  WakeCallback m_wakeCallback;    //!< Wake callback
 };
 
 
