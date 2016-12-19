@@ -28,7 +28,6 @@
 #ifndef CODEL_H
 #define CODEL_H
 
-#include "ns3/packet.h"
 #include "ns3/queue-disc.h"
 #include "ns3/nstime.h"
 #include "ns3/simulator.h"
@@ -79,18 +78,28 @@ public:
   virtual ~CoDelQueueDisc ();
 
   /**
+   * \brief Enumeration of the modes supported in the class.
+   *
+   */
+  enum QueueDiscMode
+  {
+    QUEUE_DISC_MODE_PACKETS,     /**< Use number of packets for maximum queue size */
+    QUEUE_DISC_MODE_BYTES,       /**< Use number of bytes for maximum queue size */
+  };
+
+  /**
    * \brief Set the operating mode of this device.
    *
    * \param mode The operating mode of this device.
    */
-  void SetMode (Queue::QueueMode mode);
+  void SetMode (QueueDiscMode mode);
 
   /**
    * \brief Get the encapsulation mode of this device.
    *
    * \returns The encapsulation mode of this device.
    */
-  Queue::QueueMode  GetMode (void);
+  QueueDiscMode GetMode (void);
 
   /**
    * \brief Get the current value of the queue in bytes or packets.
@@ -242,7 +251,7 @@ private:
   uint32_t m_state3;                      //!< Number of times we enter drop state and drop the fist packet
   uint32_t m_states;                      //!< Total number of times we are in state 1, state 2, or state 3
   uint32_t m_dropOverLimit;               //!< The number of packets dropped due to full queue
-  Queue::QueueMode     m_mode;                   //!< The operating mode (Bytes or packets)
+  QueueDiscMode m_mode;                   //!< The operating mode (Bytes or packets)
   TracedValue<Time> m_sojourn;            //!< Time in queue
 };
 

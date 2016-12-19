@@ -31,12 +31,12 @@ Ipv4QueueDiscItem::Ipv4QueueDiscItem (Ptr<Packet> p, const Address& addr,
 {
 }
 
-Ipv4QueueDiscItem::~Ipv4QueueDiscItem()
+Ipv4QueueDiscItem::~Ipv4QueueDiscItem ()
 {
   NS_LOG_FUNCTION (this);
 }
 
-uint32_t Ipv4QueueDiscItem::GetPacketSize(void) const
+uint32_t Ipv4QueueDiscItem::GetSize (void) const
 {
   Ptr<Packet> p = GetPacket ();
   NS_ASSERT (p != 0);
@@ -54,7 +54,7 @@ Ipv4QueueDiscItem::GetHeader (void) const
   return m_header;
 }
 
-void Ipv4QueueDiscItem::AddHeader(void)
+void Ipv4QueueDiscItem::AddHeader (void)
 {
   NS_LOG_FUNCTION (this);
 

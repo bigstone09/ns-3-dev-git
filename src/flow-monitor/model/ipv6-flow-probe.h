@@ -25,6 +25,7 @@
 #include "ns3/flow-probe.h"
 #include "ns3/ipv6-flow-classifier.h"
 #include "ns3/ipv6-l3-protocol.h"
+#include "ns3/queue-item.h"
 
 namespace ns3 {
 
@@ -119,7 +120,7 @@ private:
   void QueueDropLogger (Ptr<const Packet> ipPayload);
   /// Log a packet being dropped by a queue disc
   /// \param item queue item
-  void QueueDiscDropLogger (Ptr<const QueueItem> item);
+  void QueueDiscDropLogger (Ptr<const QueueDiscItem> item);
 
   Ptr<Ipv6FlowClassifier> m_classifier; //!< the Ipv6FlowClassifier this probe is associated with
 };
