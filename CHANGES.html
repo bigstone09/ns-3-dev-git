@@ -126,6 +126,12 @@ is now exported by WifiNetDevice.</li>
 </li>
   <li> The default value of the <b>TxGain</b> and <b>RxGain</b> attributes in WifiPhy was changed from 1 dB to 0 dB.
   </li>
+<li><b>Queue</b> has been redesigned as a template class object. Consequently,
+    network devices such as SimpleNetDevice, PointToPointNetDevice and CsmaNetDevice
+    use a queue of type Queue&lt;Packet&gt; to store the packets to transmit.
+    The attributes <b>Mode</b>, <b>MaxPackets</b> and <b>MaxBytes</b> are now
+    defined by the QueueBase class.
+</li>
 </ul>
 
 <hr>

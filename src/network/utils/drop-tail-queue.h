@@ -19,7 +19,6 @@
 #ifndef DROPTAIL_H
 #define DROPTAIL_H
 
-#include <queue>
 #include "ns3/queue.h"
 
 namespace ns3 {
@@ -47,15 +46,19 @@ public:
 
   virtual ~DropTailQueue ();
 
+  virtual bool Enqueue (Ptr<Item> item);
+  virtual Ptr<Item> Dequeue (void);
+  virtual Ptr<Item> Remove (void);
+  virtual Ptr<const Item> Peek (void) const;
+
 private:
-  virtual bool DoEnqueue (Ptr<Item> item);
-  virtual Ptr<Item> DoDequeue (void);
-  virtual Ptr<Item> DoRemove (void);
-  virtual Ptr<const Item> DoPeek (void) const;
-
-  std::queue<Ptr<Item> > m_packets;         //!< the items in the queue
-
   using QueueBase::NsLog;
+  using Queue<Item>::Head;
+  using Queue<Item>::Tail;
+  using Queue<Item>::DoEnqueue;
+  using Queue<Item>::DoDequeue;
+  using Queue<Item>::DoRemove;
+  using Queue<Item>::DoPeek;
 };
 
 
@@ -77,8 +80,7 @@ DropTailQueue<Item>::GetTypeId (void)
 
 template <typename Item>
 DropTailQueue<Item>::DropTailQueue () :
-  Queue<Item> (),
-  m_packets ()
+  Queue<Item> ()
 {
   NsLog (LOG_DEBUG, "DropTailQueue ", this);
 }
@@ -91,25 +93,20 @@ DropTailQueue<Item>::~DropTailQueue ()
 
 template <typename Item>
 bool
-DropTailQueue<Item>::DoEnqueue (Ptr<Item> item)
+DropTailQueue<Item>::Enqueue (Ptr<Item> item)
 {
-  NsLog (LOG_DEBUG, "DoEnqueue ", this, item);
-  NS_ASSERT (m_packets.size () == this->GetNPackets ());
+  NsLog (LOG_DEBUG, "Enqueue ", this, item);
 
-  m_packets.push (item);
-
-  return true;
+  return DoEnqueue (Tail (), item);
 }
 
 template <typename Item>
 Ptr<Item>
-DropTailQueue<Item>::DoDequeue (void)
+DropTailQueue<Item>::Dequeue (void)
 {
-  NsLog (LOG_DEBUG, "DoDequeue ", this);
-  NS_ASSERT (m_packets.size () == this->GetNPackets ());
+  NsLog (LOG_DEBUG, "Dequeue ", this);
 
-  Ptr<Item> item = m_packets.front ();
-  m_packets.pop ();
+  Ptr<Item> item = DoDequeue (Head ());
 
   NsLog (LOG_LOGIC, "Popped ", item);
 
@@ -118,13 +115,11 @@ DropTailQueue<Item>::DoDequeue (void)
 
 template <typename Item>
 Ptr<Item>
-DropTailQueue<Item>::DoRemove (void)
+DropTailQueue<Item>::Remove (void)
 {
-  NsLog (LOG_DEBUG, "DoRemove ", this);
-  NS_ASSERT (m_packets.size () == this->GetNPackets ());
+  NsLog (LOG_DEBUG, "Remove ", this);
 
-  Ptr<Item> item = m_packets.front ();
-  m_packets.pop ();
+  Ptr<Item> item = DoRemove (Head ());
 
   NsLog (LOG_LOGIC, "Removed ", item);
 
@@ -133,12 +128,11 @@ DropTailQueue<Item>::DoRemove (void)
 
 template <typename Item>
 Ptr<const Item>
-DropTailQueue<Item>::DoPeek (void) const
+DropTailQueue<Item>::Peek (void) const
 {
-  NsLog (LOG_DEBUG, "DoPeek ", this);
-  NS_ASSERT (m_packets.size () == this->GetNPackets ());
+  NsLog (LOG_DEBUG, "Peek ", this);
 
-  return m_packets.front ();
+  return DoPeek (Head ());
 }
 
 } // namespace ns3
