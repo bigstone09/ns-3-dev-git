@@ -80,6 +80,9 @@ TrafficControlLayer::DoInitialize (void)
           Ptr<NetDeviceQueueInterface> devQueueIface = ndi->second.ndqi;
           NS_ASSERT (devQueueIface);
 
+          // initialize the queue disc
+          ndi->second.rootQueueDisc->Initialize ();
+
           // set the wake callbacks on netdevice queues
            if (ndi->second.rootQueueDisc->GetWakeMode () == QueueDisc::WAKE_ROOT)
             {
@@ -100,9 +103,6 @@ TrafficControlLayer::DoInitialize (void)
                   ndi->second.queueDiscsToWake.push_back (ndi->second.rootQueueDisc->GetQueueDiscClass (i)->GetQueueDisc ());
                 }
             }
-
-          // initialize the queue disc
-          ndi->second.rootQueueDisc->Initialize ();
         }
     }
   Object::DoInitialize ();

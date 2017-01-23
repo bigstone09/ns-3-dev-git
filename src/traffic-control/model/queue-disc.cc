@@ -173,7 +173,8 @@ TypeId QueueDisc::GetTypeId (void)
 }
 
 QueueDisc::QueueDisc ()
-  :  m_nPackets (0),
+  :  m_wakeMode(WAKE_ROOT),
+     m_nPackets (0),
      m_nBytes (0),
      m_nTotalReceivedPackets (0),
      m_nTotalReceivedBytes (0),
@@ -398,7 +399,7 @@ QueueDisc::Classify (Ptr<QueueDiscItem> item)
 QueueDisc::WakeMode
 QueueDisc::GetWakeMode (void)
 {
-  return WAKE_ROOT;
+  return m_wakeMode;
 }
 
 void

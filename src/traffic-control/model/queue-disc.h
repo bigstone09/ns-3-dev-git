@@ -458,6 +458,10 @@ protected:
    */
   void Drop (Ptr<QueueItem> item);
 
+  Ptr<NetDeviceQueueInterface> m_devQueueIface;   //!< NetDevice queue interface
+
+  WakeMode m_wakeMode;
+
 private:
   /**
    *  \brief Notify the parent queue disc of a packet drop
@@ -555,7 +559,6 @@ private:
   uint32_t m_nTotalRequeuedBytes;   //!< Total requeued bytes
   uint32_t m_quota;                 //!< Maximum number of packets dequeued in a qdisc run
   Ptr<NetDevice> m_device;          //!< The NetDevice on which this queue discipline is installed
-  Ptr<NetDeviceQueueInterface> m_devQueueIface;   //!< NetDevice queue interface
   bool m_running;                   //!< The queue disc is performing multiple dequeue operations
   Ptr<QueueDiscItem> m_requeued;    //!< The last packet that failed to be transmitted
   ParentDropCallback m_parentDropCallback;   //!< Parent drop callback
