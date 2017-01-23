@@ -168,7 +168,9 @@ Ipv4AddressHelper::Assign (const NetDeviceContainer &c)
       if (tc && DynamicCast<LoopbackNetDevice> (device) == 0 && tc->GetRootQueueDiscOnDevice (device) == 0)
         {
           NS_LOG_LOGIC ("Installing default traffic control configuration");
-          TrafficControlHelper tcHelper = TrafficControlHelper::Default ();
+          Ptr<NetDeviceQueueInterface> ndqi = device->GetObject<NetDeviceQueueInterface> ();
+          NS_ASSERT (ndqi);
+          TrafficControlHelper tcHelper = TrafficControlHelper::Default (ndqi->GetNTxQueues ());
           tcHelper.Install (device);
         }
     }

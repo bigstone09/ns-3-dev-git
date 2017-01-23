@@ -133,7 +133,7 @@ public:
    * The default configuration is a PfifoFastQueueDisc with three internal queues
    * of type DropTailQueue and size 1000 packets.
    */
-  static TrafficControlHelper Default (void);
+  static TrafficControlHelper Default (uint8_t numTxQueues);
 
   /**
    * Helper function used to set a root queue disc of the given type and with the

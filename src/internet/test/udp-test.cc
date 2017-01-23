@@ -264,7 +264,9 @@ UdpSocketImplTest::DoRun (void)
   InternetStackHelper internet;
   internet.Install (nodes);
 
-  TrafficControlHelper tch = TrafficControlHelper::Default ();
+  Ptr<NetDeviceQueueInterface> ndqi = net1.Get (1)->GetObject<NetDeviceQueueInterface> ();
+  NS_ASSERT (ndqi);
+  TrafficControlHelper tch = TrafficControlHelper::Default (ndqi->GetNTxQueues ());
   QueueDiscContainer qdiscs = tch.Install (net1.Get (1));
 
   Ptr<Ipv4> ipv4;
