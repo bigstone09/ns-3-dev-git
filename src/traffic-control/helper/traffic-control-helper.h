@@ -258,6 +258,44 @@ public:
                         std::string n08 = "", const AttributeValue &v08 = EmptyAttributeValue ());
 
   /**
+   * Container type for Handlers
+   */
+  typedef std::vector<uint16_t> HandleList;
+
+  /**
+   * Helper function used to add packet filters (of the given type and with
+   * the given attributes) to the queue discs having the given handle.
+   *
+   * \param handle the handle of the queue discs to attach packet filters
+   * \param type the type of packet filter
+   * \param n01 the name of the attribute to set on the packet filter
+   * \param v01 the value of the attribute to set on the packet filter
+   * \param n02 the name of the attribute to set on the packet filter
+   * \param v02 the value of the attribute to set on the packet filter
+   * \param n03 the name of the attribute to set on the packet filter
+   * \param v03 the value of the attribute to set on the packet filter
+   * \param n04 the name of the attribute to set on the packet filter
+   * \param v04 the value of the attribute to set on the packet filter
+   * \param n05 the name of the attribute to set on the packet filter
+   * \param v05 the value of the attribute to set on the packet filter
+   * \param n06 the name of the attribute to set on the packet filter
+   * \param v06 the value of the attribute to set on the packet filter
+   * \param n07 the name of the attribute to set on the packet filter
+   * \param v07 the value of the attribute to set on the packet filter
+   * \param n08 the name of the attribute to set on the packet filter
+   * \param v08 the value of the attribute to set on the packet filter
+   */
+  void AddPacketFilters (const HandleList &handle, std::string type,
+                        std::string n01 = "", const AttributeValue &v01 = EmptyAttributeValue (),
+                        std::string n02 = "", const AttributeValue &v02 = EmptyAttributeValue (),
+                        std::string n03 = "", const AttributeValue &v03 = EmptyAttributeValue (),
+                        std::string n04 = "", const AttributeValue &v04 = EmptyAttributeValue (),
+                        std::string n05 = "", const AttributeValue &v05 = EmptyAttributeValue (),
+                        std::string n06 = "", const AttributeValue &v06 = EmptyAttributeValue (),
+                        std::string n07 = "", const AttributeValue &v07 = EmptyAttributeValue (),
+                        std::string n08 = "", const AttributeValue &v08 = EmptyAttributeValue ());
+
+  /**
    * Container type for Class IDs
    */
   typedef std::vector<uint16_t> ClassIdList;
@@ -353,11 +391,6 @@ public:
                               std::string n13 = "", const AttributeValue &v13 = EmptyAttributeValue (),
                               std::string n14 = "", const AttributeValue &v14 = EmptyAttributeValue (),
                               std::string n15 = "", const AttributeValue &v15 = EmptyAttributeValue ());
-
-  /**
-   * Container type for Handlers
-   */
-  typedef std::vector<uint16_t> HandleList;
 
   /**
    * Helper function used to attach a child queue disc (of the given type and with

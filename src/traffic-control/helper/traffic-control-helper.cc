@@ -212,9 +212,27 @@ TrafficControlHelper::AddPacketFilter (uint16_t handle, std::string type,
   factory.Set (n06, v06);
   factory.Set (n07, v07);
   factory.Set (n08, v08);
-
   m_queueDiscFactory[handle].AddPacketFilter (factory);
 }
+
+void
+TrafficControlHelper::AddPacketFilters (const TrafficControlHelper::HandleList &handle, std::string type,
+                                       std::string n01, const AttributeValue& v01,
+                                       std::string n02, const AttributeValue& v02,
+                                       std::string n03, const AttributeValue& v03,
+                                       std::string n04, const AttributeValue& v04,
+                                       std::string n05, const AttributeValue& v05,
+                                       std::string n06, const AttributeValue& v06,
+                                       std::string n07, const AttributeValue& v07,
+                                       std::string n08, const AttributeValue& v08)
+{
+  for (HandleList::const_iterator c = handle.begin (); c != handle.end (); c++)
+    {
+      AddPacketFilter (handle[*c - 1], type, n01, v01, n02, v02, n03, v03,
+                       n04, v04, n05, v05, n06, v06, n07, v07, n08, v08);
+    }
+}
+
 
 TrafficControlHelper::ClassIdList
 TrafficControlHelper::AddQueueDiscClasses (uint16_t handle, uint16_t count, std::string type,
