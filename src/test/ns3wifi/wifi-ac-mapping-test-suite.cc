@@ -41,6 +41,7 @@
 #include "ns3/ipv4-address-helper.h"
 #include "ns3/packet-sink-helper.h"
 #include "ns3/on-off-helper.h"
+#include "ns3/traffic-control-helper.h"
 
 using namespace ns3;
 
@@ -110,6 +111,17 @@ WifiAcMappingTest::DoRun (void)
   InternetStackHelper stack;
   stack.Install (ap);
   stack.Install (sta);
+
+  TrafficControlHelper tch;
+  uint16_t handle = tch.SetRootQueueDisc ("ns3::MqQueueDisc");
+  TrafficControlHelper::ClassIdList cls = tch.AddQueueDiscClasses (handle, 4, "ns3::QueueDiscClass");
+  TrafficControlHelper::HandleList hdl = tch.AddChildQueueDiscs (handle, cls, "ns3::FqCoDelQueueDisc");
+  for (auto h : hdl)
+    {
+      tch.AddPacketFilter (h, "ns3::FqCoDelIpv4PacketFilter");
+    }
+  tch.Install (apDev);
+  tch.Install (staDev);
 
   Ipv4AddressHelper address;
   address.SetBase ("192.168.0.0", "255.255.255.0");
