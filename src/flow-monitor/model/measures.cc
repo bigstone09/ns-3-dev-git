@@ -91,7 +91,7 @@ void WiMeshFlowMon::UpdateStats()
       {
 	// create a new file
 	ofs.open (ss.str().c_str(), ofstream::out);
-	ofs << "# Time (Seconds)   Delay (MilliSeconds)   Throughput (Kbps)   PacketLoss" << endl;
+// 	ofs << "# Time (Seconds)   Delay (MilliSeconds)   Throughput (Kbps)   PacketLoss" << endl;
 	ofs.close();
       }
     }

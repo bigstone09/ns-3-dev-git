@@ -29,14 +29,14 @@
 #include "ns3/traffic-control-module.h"
 #include "ns3/flow-monitor-module.h"
 
-// Default Network Topology
+// Network Topology
 //
-//   Wifi 10.1.3.0
-//                     AP
-//  x    x    x    x    *
-//  |    |    |    |    |         10.1.1.0
-// n5   n4   n3   n2   n0 ------------------------ n1
-//                              point-to-point
+//   WiFi 10.1.2.0
+//                  AP
+// *                *
+// |                |       10.1.1.0
+// n2               n0 ------------------- n1
+//                       point-to-point
 
 using namespace ns3;
 
@@ -51,14 +51,18 @@ TcPacketsInQueueTrace (uint32_t oldValue, uint32_t newValue)
 int
 main (int argc, char *argv[])
 {
-  double simulationTime = 10; //seconds
+  double simulationTime = 60; //seconds
   bool tracing = false;
   std::string queueDiscType = "PfifoFast";
+  uint32_t queueSize = 100;
 
   CommandLine cmd;
   cmd.AddValue ("tracing", "Enable tc tracing", tracing);
-  cmd.AddValue ("queueDiscType", "AP queue disc type in {PfifoFast, MqWithPfifoFast, MqWithCoDel}", queueDiscType);
+  cmd.AddValue ("queueDiscType", "AP queue disc type in {PfifoFast, MqPfifoFast, MqFqCoDel}", queueDiscType);
+  cmd.AddValue ("queueSize", "Devices queue size in packets", queueSize);
   cmd.Parse (argc,argv);
+
+  Config::SetDefault ("ns3::QueueBase::MaxPackets", UintegerValue (queueSize));
 
   NodeContainer p2pNodes;
   p2pNodes.Create (2);
@@ -70,9 +74,8 @@ main (int argc, char *argv[])
   NetDeviceContainer p2pDevices;
   p2pDevices = pointToPoint.Install (p2pNodes);
 
-  uint32_t nWifi = 2;
   NodeContainer wifiStaNodes;
-  wifiStaNodes.Create (nWifi);
+  wifiStaNodes.Create (1);
   NodeContainer wifiApNode = p2pNodes.Get (0);
 
   YansWifiChannelHelper channel = YansWifiChannelHelper::Default ();
@@ -110,9 +113,9 @@ main (int argc, char *argv[])
 
 //   mobility.SetMobilityModel ("ns3::RandomWalk2dMobilityModel",
 //                              "Bounds", RectangleValue (Rectangle (-50, 50, -50, 50)));
-  mobility.Install (wifiStaNodes);
-
   mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
+
+  mobility.Install (wifiStaNodes);
   mobility.Install (wifiApNode);
 
   InternetStackHelper stack;
@@ -120,42 +123,40 @@ main (int argc, char *argv[])
 
   // Traffic control configurations
   // 1) Traffic control configuration for the AP node
-  // build a root queue disc of type mq with internal classes of type fq-codel with their filters
   TrafficControlHelper tch;
   if (queueDiscType.compare ("PfifoFast") == 0)
     {
       tch.SetRootQueueDisc ("ns3::PfifoFastQueueDisc");
     }
-  else if (queueDiscType.compare ("MqWithPfifoFast") == 0)
+  else if (queueDiscType.compare ("MqPfifoFast") == 0)
     {
       uint32_t handle = tch.SetRootQueueDisc ("ns3::MqQueueDisc");
       TrafficControlHelper::ClassIdList cls = tch.AddQueueDiscClasses (handle, 4, "ns3::QueueDiscClass");
-      /*TrafficControlHelper::HandleList hdl = */tch.AddChildQueueDiscs (handle, cls, "ns3::PfifoFastQueueDisc");
+      tch.AddChildQueueDiscs (handle, cls, "ns3::PfifoFastQueueDisc");
     }
-  else if (queueDiscType.compare ("MqWithCoDel") == 0)
+  else if (queueDiscType.compare ("MqFqCoDel") == 0)
     {
       uint32_t handle = tch.SetRootQueueDisc ("ns3::MqQueueDisc");
       TrafficControlHelper::ClassIdList cls = tch.AddQueueDiscClasses (handle, 4, "ns3::QueueDiscClass");
-      /*TrafficControlHelper::HandleList hdl = */tch.AddChildQueueDiscs (handle, cls, "ns3::CoDelQueueDisc");
+      TrafficControlHelper::HandleList hdl = tch.AddChildQueueDiscs (handle, cls, "ns3::FqCoDelQueueDisc");
+      for (auto h : hdl)
+        {
+          tch.AddPacketFilter (h, "ns3::FqCoDelIpv4PacketFilter");
+        }
     }
   else
     {
       NS_ABORT_MSG ("--queueDiscType not valid");
     }
-//   uint32_t handle = tch.SetRootQueueDisc ("ns3::MqQueueDisc");
-//   TrafficControlHelper::ClassIdList cls = tch.AddQueueDiscClasses (handle, 4, "ns3::QueueDiscClass");
-//   /*TrafficControlHelper::HandleList hdl = */tch.AddChildQueueDiscs (handle, cls, "ns3::PfifoFastQueueDisc");
-//   tch.AddPacketFilters (hdl, "ns3::FqCoDelIpv4PacketFilter");
-
-  // 2) The wifi and p2p nodes have a default traffic control configuration for single queue devices
-  // (of type pfifo-fast)
 
   QueueDiscContainer qdisc = tch.Install (apDevices);
+  // 2) The p2p nodes and the WiFi node have a default traffic control configuration for single queue devices
+  // (of type pfifo-fast)
 
   if (tracing == true)
     {
-  Ptr<QueueDisc> q = qdisc.Get (3);
-  q->TraceConnectWithoutContext ("PacketsInQueue", MakeCallback (&TcPacketsInQueueTrace));
+      Ptr<QueueDisc> q = qdisc.Get (3);
+      q->TraceConnectWithoutContext ("PacketsInQueue", MakeCallback (&TcPacketsInQueueTrace));
     }
 
   Ipv4AddressHelper address;
@@ -168,43 +169,55 @@ main (int argc, char *argv[])
   staInterfaces = address.Assign (staDevices);
   address.Assign (apDevices);
 
-  uint32_t payloadSize = 1448;
+  uint32_t payloadSize = 1400;
   Config::SetDefault ("ns3::TcpSocket::SegmentSize", UintegerValue (payloadSize));
 
-  //Flows
+  // flows
   ApplicationContainer sinkApps, sourceApps;
-  uint16_t port = 7;
+  uint16_t port1 = 7;
 
-  for (uint32_t i = 0; i < nWifi; i++)
-    {
-      Address localAddress (InetSocketAddress (Ipv4Address::GetAny (), port + i));
-      PacketSinkHelper packetSinkHelper ("ns3::TcpSocketFactory", localAddress);
+  Address localAddress1 (InetSocketAddress (Ipv4Address::GetAny (), port1));
+  PacketSinkHelper packetSinkHelper1 ("ns3::TcpSocketFactory", localAddress1);
 
-      sinkApps.Add (packetSinkHelper.Install (wifiStaNodes.Get (i)));
+  sinkApps.Add (packetSinkHelper1.Install (wifiStaNodes.Get (0)));
 
-      OnOffHelper onoff ("ns3::TcpSocketFactory", Ipv4Address::GetAny ());
-      onoff.SetAttribute ("OnTime",  StringValue ("ns3::ConstantRandomVariable[Constant=1]"));
-      onoff.SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0]"));
-      onoff.SetAttribute ("PacketSize", UintegerValue (payloadSize));
-      onoff.SetAttribute ("DataRate", StringValue ("100Mbps"));
+  OnOffHelper onoff1 ("ns3::TcpSocketFactory", Ipv4Address::GetAny ());
+  onoff1.SetAttribute ("OnTime",  StringValue ("ns3::ConstantRandomVariable[Constant=1]"));
+  onoff1.SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0]"));
+  onoff1.SetAttribute ("PacketSize", UintegerValue (payloadSize));
+  onoff1.SetAttribute ("DataRate", StringValue ("20Mbps"));
 
-      InetSocketAddress dest (staInterfaces.GetAddress (i), port + i);
-      // set a differet Tos for each flow
-      if (i == 0)
-       {
-         dest.SetTos (0x00); // Priority 0 -> Band 1 of pfifo_fast
-       }
-      else
-       {
-         dest.SetTos (0x14); // Priority 6 -> Band 0 of pfifo_fast
-      }
+  InetSocketAddress dest1 (staInterfaces.GetAddress (0), port1);
+  dest1.SetTos (0x00);
 
-      AddressValue remoteAddress (dest);
-      onoff.SetAttribute ("Remote", remoteAddress);
+  AddressValue remoteAddress1 (dest1);
+  onoff1.SetAttribute ("Remote", remoteAddress1);
 
-      sourceApps.Add (onoff.Install (p2pNodes.Get (1)));
-    }
+  sourceApps.Add (onoff1.Install (p2pNodes.Get (1)));
 
+
+  uint16_t port2 = 8;
+
+  Address localAddress2 (InetSocketAddress (Ipv4Address::GetAny (), port2));
+  PacketSinkHelper packetSinkHelper2 ("ns3::TcpSocketFactory", localAddress2);
+
+  sinkApps.Add (packetSinkHelper2.Install (wifiStaNodes.Get (0)));
+
+  OnOffHelper onoff2 ("ns3::TcpSocketFactory", Ipv4Address::GetAny ());
+  onoff2.SetAttribute ("OnTime",  StringValue ("ns3::ConstantRandomVariable[Constant=1]"));
+  onoff2.SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0]"));
+  onoff2.SetAttribute ("PacketSize", UintegerValue (payloadSize));
+  onoff2.SetAttribute ("DataRate", StringValue ("20Mbps"));
+
+  InetSocketAddress dest2 (staInterfaces.GetAddress (0), port2);
+  dest2.SetTos (0x98);
+
+  AddressValue remoteAddress2 (dest2);
+  onoff2.SetAttribute ("Remote", remoteAddress2);
+
+  sourceApps.Add (onoff2.Install (p2pNodes.Get (1)));
+
+  // start and stop apps
   sinkApps.Start (Seconds (0.0));
   sinkApps.Stop (Seconds (simulationTime + 0.1));
 
@@ -224,7 +237,7 @@ main (int argc, char *argv[])
   Simulator::Run ();
 
   std::cout << std::endl << "*** Application statistics ***" << std::endl;
-  for (uint32_t i = 0; i < nWifi; i++)
+  for (uint32_t i = 0; i < 2; i++)
     {
       std::cout << std::endl << "*** Application " << i << " ***" << std::endl;
       double thr = 0;
