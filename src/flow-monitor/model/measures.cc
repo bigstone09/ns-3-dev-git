@@ -29,9 +29,9 @@ void WiMeshFlowMon::Enable(double _interval, double _duration, bool _perflow, st
   perflow = _perflow;
   logfile = _logfile;
 
-//   ofstream ofs (logfile.c_str(), ofstream::out);
+  ofstream ofs (logfile.c_str(), ofstream::out);
 //   ofs << "# Time (Seconds)   Delay (MilliSeconds)   Throughput (Kbps)   PacketLoss" << endl;
-//   ofs.close();
+  ofs.close();
 }
 
 
@@ -41,7 +41,7 @@ void WiMeshFlowMon::UpdateStats()
 
   Ptr<Ipv4FlowClassifier> classifier = DynamicCast<Ipv4FlowClassifier> (flowmon_helper->GetClassifier ());
 
-  flowmon->CheckForLostPackets ();
+  flowmon->CheckForLostPackets (Seconds (30));
 
   std::map<FlowId, FlowMonitor::FlowStats> stats = flowmon->GetFlowStats ();
 
@@ -73,6 +73,12 @@ void WiMeshFlowMon::UpdateStats()
     dst = (int)t.destinationPort;    // the mesh node id is stored in the 3rd byte of the host IP address
 
     pair<int,int> sd (src, dst);
+
+    // consider one direction flows
+    if (src <= dst)
+      {
+        break;
+      }
 
     // check whether this flow is already present in WMstats
     if (WMstats.find (sd) == WMstats.end())
@@ -140,10 +146,11 @@ void WiMeshFlowMon::UpdateStats()
   }
 
   // write cumulative measures to the file
-//   ofs.open (logfile.c_str(), ofstream::app);
-//   ofs << setw(16) << time.GetSeconds() << setw(23) << (rxPackets ? delaySum / rxPackets : 0) 
-//       << setw(20) << avgThroughput << setw(13) << lostPackets << endl;
-//   ofs.close();
+
+  ofs.open (logfile.c_str(), ofstream::app);
+  ofs << setw(16) << time.GetSeconds() << setw(23) << (rxPackets ? delaySum / rxPackets : 0) 
+      << setw(20) << avgThroughput << setw(13) << lostPackets << endl;
+  ofs.close();
 
   // do not update if simulation has finished
   if (!Simulator::IsFinished ())
