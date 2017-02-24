@@ -27,6 +27,7 @@
 #include "ns3/queue-item.h"
 #include "ns3/queue.h"
 #include "ns3/net-device.h"
+#include "ns3/timer.h"
 
 namespace ns3 {
 
@@ -200,6 +201,9 @@ public:
                                Ptr<NetDeviceQueueInterface> ndqi,
                                uint8_t txq, Ptr<const Item> item);
 
+  void SetNumPackets (uint32_t);
+  void SetAbsoluteTimer (Time);
+
 protected:
   /**
    * \brief Pass messages to the ns-3 logging system
@@ -223,6 +227,13 @@ private:
   bool m_stoppedByQueueLimits;    //!< True if the queue has been stopped by a queue limits object
   Ptr<QueueLimits> m_queueLimits; //!< Queue limits object
   WakeCallback m_wakeCallback;    //!< Wake callback
+
+  uint32_t m_pendingPackets;
+  uint32_t m_pendingBytes;
+  uint32_t m_numPackets;
+  Timer m_absoluteTimer;
+
+  void TimerAction ();
 };
 
 

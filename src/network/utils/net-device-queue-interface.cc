@@ -30,9 +30,14 @@ NS_LOG_COMPONENT_DEFINE ("NetDeviceQueueInterface");
 
 NetDeviceQueue::NetDeviceQueue ()
   : m_stoppedByDevice (false),
-    m_stoppedByQueueLimits (false)
+    m_stoppedByQueueLimits (false),
+    m_pendingPackets (0),
+    m_pendingBytes (0)
 {
   NS_LOG_FUNCTION (this);
+  m_absoluteTimer.SetFunction (&NetDeviceQueue::TimerAction, this);
+  m_absoluteTimer.SetDelay (MicroSeconds (200));
+  m_numPackets = 50;
 }
 
 NetDeviceQueue::~NetDeviceQueue ()
@@ -106,18 +111,16 @@ NetDeviceQueue::NotifyTransmittedBytes (uint32_t bytes)
     {
       return;
     }
-  m_queueLimits->Completed (bytes);
-  if (m_queueLimits->Available () < 0)
+  if (!m_pendingPackets)
     {
-      return;
+      m_absoluteTimer.Schedule ();
     }
-  bool wasStoppedByQueueLimits = m_stoppedByQueueLimits;
-  m_stoppedByQueueLimits = false;
-  // Request the queue disc to dequeue a packet
-  if (wasStoppedByQueueLimits && !m_wakeCallback.IsNull ())
-  {
-      Simulator::ScheduleNow (&NetDeviceQueue::m_wakeCallback, this);
-  }
+  ++m_pendingPackets %=m_numPackets;
+  m_pendingBytes += bytes;
+  if (!m_pendingPackets)
+    {
+      TimerAction ();
+    }
 }
 
 void
@@ -149,6 +152,43 @@ void
 NetDeviceQueue::DoNsLog (const enum LogLevel level, std::string str)
 {
     NS_LOG (level, str);
+}
+
+void
+NetDeviceQueue::TimerAction ()
+{
+  NS_LOG_FUNCTION (this);
+
+  m_absoluteTimer.Cancel ();
+
+  m_queueLimits->Completed (m_pendingBytes);
+  m_pendingPackets = 0;
+  m_pendingBytes = 0;
+  if (m_queueLimits->Available () < 0)
+    {
+      return;
+    }
+  bool wasStoppedByQueueLimits = m_stoppedByQueueLimits;
+  m_stoppedByQueueLimits = false;
+  // Request the queue disc to dequeue a packet
+  if (wasStoppedByQueueLimits && !m_wakeCallback.IsNull ())
+  {
+      Simulator::ScheduleNow (&NetDeviceQueue::m_wakeCallback, this);
+  }
+}
+
+void
+NetDeviceQueue::SetNumPackets (uint32_t number)
+{
+  NS_LOG_FUNCTION (this);
+  m_numPackets  = number;
+}
+
+void
+NetDeviceQueue::SetAbsoluteTimer (Time time)
+{
+  NS_LOG_FUNCTION (this);
+  m_absoluteTimer.SetDelay (time);
 }
 
 
