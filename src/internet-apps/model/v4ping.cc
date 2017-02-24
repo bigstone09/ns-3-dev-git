@@ -57,6 +57,10 @@ V4Ping::GetTypeId (void)
                    UintegerValue (56),
                    MakeUintegerAccessor (&V4Ping::m_size),
                    MakeUintegerChecker<uint32_t> (16))
+    .AddAttribute ("Tos", "The Tos of each packet sent by the application.",
+                   UintegerValue (0x00),
+                   MakeUintegerAccessor (&V4Ping::m_tos),
+                   MakeUintegerChecker<uint8_t> ())
     .AddTraceSource ("Rtt",
                      "The rtt calculated by the ping.",
                      MakeTraceSourceAccessor (&V4Ping::m_traceRtt),
@@ -258,6 +262,7 @@ V4Ping::StartApplication (void)
   status = m_socket->Bind (src);
   NS_ASSERT (status != -1);
   InetSocketAddress dst = InetSocketAddress (m_remote, 0);
+  dst.SetTos (m_tos);
   status = m_socket->Connect (dst);
   NS_ASSERT (status != -1);
 

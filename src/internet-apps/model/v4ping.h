@@ -104,6 +104,9 @@ private:
    */
   uint32_t m_size;
   /// The socket we send packets from
+
+  uint8_t m_tos;
+
   Ptr<Socket> m_socket;
   /// ICMP ECHO sequence number
   uint16_t m_seq;
