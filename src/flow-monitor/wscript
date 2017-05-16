@@ -11,6 +11,7 @@ def build(bld):
        'ipv6-flow-classifier.cc',
        'ipv6-flow-probe.cc',
        'histogram.cc',
+       'measures.cc',
         ]]
     obj.source.append("helper/flow-monitor-helper.cc")
 
@@ -30,6 +31,7 @@ def build(bld):
        'ipv6-flow-classifier.h',
        'ipv6-flow-probe.h',
        'histogram.h',
+       'measures.h',
         ]]
     headers.source.append("helper/flow-monitor-helper.h")
 
