@@ -41,6 +41,7 @@
 
 namespace ns3 {
 
+class FdNetDevice;
 
 /**
  * \defgroup fd-net-device File Descriptor Network Device
@@ -55,6 +56,7 @@ namespace ns3 {
 class FdNetDeviceFdReader : public FdReader
 {
 public:
+
   FdNetDeviceFdReader ();
 
   /**
@@ -62,10 +64,15 @@ public:
    */
   void SetBufferSize (uint32_t bufferSize);
 
+  void SetFdNetDevice (Ptr<FdNetDevice> device);
+
 private:
   FdReader::Data DoRead (void);
 
+  Ptr<FdNetDevice> m_device;
+
   uint32_t m_bufferSize; //!< size of the read buffer
+
 };
 
 class Node;
@@ -84,6 +91,8 @@ class Node;
 class FdNetDevice : public NetDevice
 {
 public:
+  friend FdNetDeviceFdReader;
+
   /**
    * \brief Get the type ID.
    * \return the object TypeId
@@ -190,7 +199,17 @@ public:
 protected:
   virtual void DoDispose (void);
 
+  /**
+   * The file descriptor used for receive/send network traffic.
+   */
+  int m_fd;
+
 private:
+
+  virtual ssize_t Write (uint8_t *buffer, size_t length);
+
+  virtual ssize_t Read (uint8_t *buffer);
+
   /**
    * \brief Copy constructor
    *
@@ -252,11 +271,6 @@ private:
    * The MTU associated to the file descriptor technology
    */
   uint16_t m_mtu;
-
-  /**
-   * The file descriptor used for receive/send network traffic.
-   */
-  int m_fd;
 
   /**
    * Reader for the file descriptor.

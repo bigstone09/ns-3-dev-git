@@ -69,20 +69,37 @@ def configure(conf):
                 "needs linux/if_tun.h")
 
         # Enable use of raw socket (EMU) helper.
-        conf.env['ENABLE_EMU'] = conf.check_nonfatal(
+        have_emu = conf.check_nonfatal(
            header_name='netpacket/packet.h',
            define_name='HAVE_PACKET_H') and have_sysioctl and have_netif
+        conf.env['ENABLE_EMU'] = have_emu
 
         if conf.env['ENABLE_EMU']:
-            conf.report_optional_feature("EmuFdNetDevice", 
-                "Emulation FdNetDevice", 
+            conf.report_optional_feature("EmuFdNetDevice",
+                "Emulation FdNetDevice",
                 True,
                 "Emulation support enabled")
         else:
-            conf.report_optional_feature("EmuFdNetDevice", 
-                "Emulation FdNetDevice", 
+            conf.report_optional_feature("EmuFdNetDevice",
+                "Emulation FdNetDevice",
                 False,
                 "needs netpacket/packet.h")
+
+        # Enable use of netmap EMU support
+        conf.env['ENABLE_NETMAP_EMU'] = conf.check_nonfatal(
+           header_name='net/netmap_user.h',
+           define_name='HAVE_NETMAP_USER_H') and have_emu
+
+        if conf.env['ENABLE_NETMAP_EMU']:
+            conf.report_optional_feature("NetmapFdNetDevice", 
+                "Netmap emulation FdNetDevice", 
+                True,
+                "Netmap emulation support enabled")
+        else:
+            conf.report_optional_feature("NetmapFdNetDevice", 
+                "Netmap emulation FdNetDevice", 
+                False,
+                "needs net/netmap_user.h")
 
         # Enable use of PlanetLab TAP helper
         # TODO: How to validate 
@@ -159,6 +176,15 @@ def build(bld):
 
         module.env.append_value("DEFINES", 
            "RAW_SOCK_CREATOR=\"%s\"" % (creator.target,))
+
+    if bld.env['ENABLE_NETMAP_EMU']:
+        module.source.extend([
+            'model/netmap-net-device.cc',
+        ])
+
+        headers.source.extend([
+            'model/netmap-net-device.h',
+        ])
 
     if bld.env['ENABLE_PLANETLAB']:
         module.source.extend([

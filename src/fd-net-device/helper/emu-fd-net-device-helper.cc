@@ -28,6 +28,7 @@
 #include "ns3/packet.h"
 #include "ns3/simulator.h"
 #include "ns3/trace-helper.h"
+#include "ns3/netmap-net-device.h"
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -62,6 +63,13 @@ NS_LOG_COMPONENT_DEFINE ("EmuFdNetDeviceHelper");
 EmuFdNetDeviceHelper::EmuFdNetDeviceHelper ()
 {
   m_deviceName = "undefined";
+
+#ifdef HAVE_NETMAP_USER_H
+
+  m_netmapMode = false;
+
+#endif
+
 }
 
 void
@@ -69,6 +77,17 @@ EmuFdNetDeviceHelper::SetDeviceName (std::string deviceName)
 {
   m_deviceName = deviceName;
 }
+
+#ifdef HAVE_NETMAP_USER_H
+
+void
+EmuFdNetDeviceHelper::SetNetmapMode ()
+{
+  FdNetDeviceHelper::SetTypeId ("ns3::NetmapNetDevice");
+  m_netmapMode = true;
+}
+
+#endif
 
 std::string
 EmuFdNetDeviceHelper::GetDeviceName (void)
@@ -99,7 +118,7 @@ EmuFdNetDeviceHelper::SetFileDescriptor (Ptr<FdNetDevice> device) const
   // Call out to a separate process running as suid root in order to get a raw
   // socket.  We do this to avoid having the entire simulation running as root.
   //
-  int fd = CreateFileDescriptor ();
+  int fd = CreateFileDescriptor (true);
   device->SetFileDescriptor (fd);
 
   //
@@ -187,10 +206,34 @@ EmuFdNetDeviceHelper::SetFileDescriptor (Ptr<FdNetDevice> device) const
  
   close (mtufd);
   device->SetMtu (ifr.ifr_mtu);
+
+#ifdef HAVE_NETMAP_USER_H
+
+  if (m_netmapMode)
+    {
+
+      /* We used the std fd to get the emulated device info.
+       * Now we close the std fd and we will open the netmap fd.
+       * Then we switch the interface in netmap mode
+       * calling the NetmapOpen provided by device
+       */
+
+      close (fd);
+      fd = CreateFileDescriptor (false);
+
+      Ptr<NetmapNetDevice> netmapDevice = StaticCast<NetmapNetDevice> (device);
+      netmapDevice->SetFileDescriptor (fd);
+      netmapDevice->SetDeviceName (m_deviceName);
+      netmapDevice->NetmapOpen ();
+
+    }
+
+#endif
+
 }
 
 int
-EmuFdNetDeviceHelper::CreateFileDescriptor (void) const
+EmuFdNetDeviceHelper::CreateFileDescriptor (bool std) const
 {
   NS_LOG_FUNCTION (this);
 
@@ -265,7 +308,20 @@ EmuFdNetDeviceHelper::CreateFileDescriptor (void) const
       // the (now) parent process.
       //
       std::ostringstream oss;
+
+#ifdef HAVE_NETMAP_USER_H
+
+      if (m_netmapMode & !std)
+        {
+          oss << "-n";
+        }
+
+#endif
+
       oss << "-p" << path;
+
+
+
       NS_LOG_INFO ("Parameters set to \"" << oss.str () << "\"");
 
       //

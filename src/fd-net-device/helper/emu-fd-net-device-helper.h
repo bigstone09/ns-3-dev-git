@@ -62,6 +62,12 @@ public:
    */
   void SetDeviceName (std::string deviceName);
 
+#ifdef HAVE_NETMAP_USER_H
+
+  void SetNetmapMode ();
+
+#endif
+
 protected:
 
   /**
@@ -83,12 +89,19 @@ protected:
    * socket.  We do this to avoid having the entire simulation running as root.
    * \return the rawSocket number
    */
-  virtual int CreateFileDescriptor (void) const;
+  virtual int CreateFileDescriptor (bool std) const;
 
   /**
    * The unix/linux name of the underlying device (e.g., eth0)
    */
   std::string m_deviceName;
+
+#ifdef HAVE_NETMAP_USER_H
+
+  bool m_netmapMode;
+
+#endif
+
 };
 
 } // namespace ns3

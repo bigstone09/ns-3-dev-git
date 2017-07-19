@@ -42,6 +42,16 @@ FdNetDeviceHelper::FdNetDeviceHelper ()
   m_deviceFactory.SetTypeId ("ns3::FdNetDevice");
 }
 
+#ifdef HAVE_NETMAP_USER_H
+
+void
+FdNetDeviceHelper::SetTypeId (std::string type)
+{
+  m_deviceFactory.SetTypeId (type);
+}
+
+#endif
+
 void
 FdNetDeviceHelper::SetAttribute (std::string n1, const AttributeValue &v1)
 {

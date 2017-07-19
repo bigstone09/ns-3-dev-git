@@ -23,6 +23,7 @@
 #include <sstream>
 #include <stdlib.h>
 #include <errno.h>
+#include <fcntl.h>
 
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -44,13 +45,17 @@ main (int argc, char *argv[])
 {
   int c;
   char *path = NULL;
+  bool std = true;
 
   opterr = 0;
 
-  while ((c = getopt (argc, argv, "vp:")) != -1)
+  while ((c = getopt (argc, argv, "nvp:")) != -1)
     {
       switch (c)
         {
+        case 'n':
+          std = false;
+          break;
         case 'v':
           gVerbose = true;
           break;
@@ -81,9 +86,20 @@ main (int argc, char *argv[])
   // though.  So all of these hoops are to allow us to execute the following
   // single line of code:
   //
-  LOG ("Creating raw socket");
-  int sock = socket (PF_PACKET, SOCK_RAW, htons (ETH_P_ALL));
-  ABORT_IF (sock == -1, "CreateSocket(): Unable to open raw socket", 1);
+
+  int sock = -1;
+  if (std)
+    {
+      LOG ("Creating raw socket");
+      sock = socket (PF_PACKET, SOCK_RAW, htons (ETH_P_ALL));
+      ABORT_IF (sock == -1, "CreateSocket(): Unable to open raw socket", 1);
+    }
+  else
+    {
+      LOG ("Creating netmap fd");
+      sock = open ("/dev/netmap", O_RDWR);
+      ABORT_IF (sock == -1, "CreateSocket(): Unable to open netmap fd", 1);
+    }
 
   //
   // Send the socket back to the emu net device so it can go about its business

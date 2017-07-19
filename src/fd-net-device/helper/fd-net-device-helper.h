@@ -54,6 +54,12 @@ public:
   {
   }
 
+#ifdef HAVE_NETMAP_USER_H
+
+  void SetTypeId (std::string type);
+
+#endif
+
   /**
    * \param n1 the name of the attribute to set
    * \param v1 the value of the attribute to set
