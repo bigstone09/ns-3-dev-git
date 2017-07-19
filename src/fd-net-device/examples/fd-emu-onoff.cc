@@ -105,6 +105,11 @@ main (int argc, char *argv[])
   std::string netmask ("255.255.255.0");
   std::string macClient ("00:00:00:00:00:01");
   std::string macServer ("00:00:00:00:00:02");
+#ifdef HAVE_PACKET_H
+  std::string emuMode ("raw");
+#else        // HAVE_NETMAP_USER_H is true (otherwise this example is not compiled)
+  std::string emuMode ("netmap");
+#endif
 
   CommandLine cmd;
   cmd.AddValue ("deviceName", "Device name", deviceName);
@@ -115,6 +120,7 @@ main (int argc, char *argv[])
   cmd.AddValue ("mac-client", "Mac Address for Server Client : 00:00:00:00:00:01", macClient);
   cmd.AddValue ("mac-server", "Mac Address for Server Default : 00:00:00:00:00:02", macServer);
   cmd.AddValue ("data-rate", "Data rate defaults to 1000Mb/s", dataRate);
+  cmd.AddValue ("emuMode", "Emulation mode in {raw, netmap}", emuMode);
   cmd.Parse (argc, argv);
 
   Ipv4Address remoteIp;
@@ -144,9 +150,31 @@ main (int argc, char *argv[])
   Ptr<Node> node = CreateObject<Node> ();
 
   NS_LOG_INFO ("Create Device");
-  EmuFdNetDeviceHelper emu;
-  emu.SetDeviceName (deviceName);
-  NetDeviceContainer devices = emu.Install (node);
+  FdNetDeviceHelper* helper = nullptr;
+
+#ifdef HAVE_PACKET_H
+  if (emuMode == "raw")
+    {
+      EmuFdNetDeviceHelper* raw = new EmuFdNetDeviceHelper;
+      raw->SetDeviceName (deviceName);
+      helper = raw;
+    }
+#endif
+#ifdef HAVE_NETMAP_USER_H
+  if (emuMode == "netmap")
+    {
+      NetmapNetDeviceHelper* netmap = new NetmapNetDeviceHelper;
+      netmap->SetDeviceName (deviceName);
+      helper = netmap;
+    }
+#endif
+
+  if (helper == nullptr)
+    {
+      NS_ABORT_MSG (emuMode << " not supported.");
+    }
+
+  NetDeviceContainer devices = helper->Install (node);
   Ptr<NetDevice> device = devices.Get (0);
   device->SetAttribute ("Address", localMac);
 
@@ -170,8 +198,8 @@ main (int argc, char *argv[])
     ApplicationContainer sinkApp = sinkHelper.Install (node);
     sinkApp.Start (Seconds (1.0));
     sinkApp.Stop (Seconds (60.0));
-    
-    emu.EnablePcap ("fd-server", device);
+
+    helper->EnablePcap (emuMode + "-emu-server", device);
   }
   else
   {
@@ -187,12 +215,13 @@ main (int argc, char *argv[])
     clientApps.Start (Seconds (4.0));
     clientApps.Stop (Seconds (58.0));
 
-    emu.EnablePcap ("fd-client", device);
+    helper->EnablePcap (emuMode + "-emu-client", device);
   }
 
   Simulator::Stop (Seconds (61.0));
   Simulator::Run ();
   Simulator::Destroy ();
+  delete helper;
 
   return 0;
 }

@@ -259,12 +259,34 @@ FdNetDevice::StartDevice (void)
   //
   m_nodeId = GetNode ()->GetId ();
 
-  m_fdReader = Create<FdNetDeviceFdReader> ();
-  // 22 bytes covers 14 bytes Ethernet header with possible 8 bytes LLC/SNAP
-  m_fdReader->SetBufferSize (m_mtu + 22);
+  m_fdReader = DoCreateFdReader ();
   m_fdReader->Start (m_fd, MakeCallback (&FdNetDevice::ReceiveCallback, this));
 
   NotifyLinkUp ();
+}
+
+Ptr<FdReader>
+FdNetDevice::DoCreateFdReader (void)
+{
+  NS_LOG_FUNCTION (this);
+
+  Ptr<FdNetDeviceFdReader> fdReader = Create<FdNetDeviceFdReader> ();
+  // 22 bytes covers 14 bytes Ethernet header with possible 8 bytes LLC/SNAP
+  fdReader->SetBufferSize (m_mtu + 22);
+  return fdReader;
+}
+
+int
+FdNetDevice::GetFd (void) const
+{
+  NS_LOG_FUNCTION (this);
+  return m_fd;
+}
+
+void
+FdNetDevice::DoFinishStoppingDevice (void)
+{
+  NS_LOG_FUNCTION (this);
 }
 
 void
@@ -283,6 +305,8 @@ FdNetDevice::StopDevice (void)
       close (m_fd);
       m_fd = -1;
     }
+
+  DoFinishStoppingDevice ();
 }
 
 void
@@ -587,7 +611,7 @@ FdNetDevice::SendFrom (Ptr<Packet> packet, const Address& src, const Address& de
       AddPIHeader (buffer, len);
     }
 
-  ssize_t written = write (m_fd, buffer, len);
+  ssize_t written = Write (buffer, len);
   free (buffer);
 
   if (written == -1 || (size_t) written != len)
@@ -599,6 +623,14 @@ FdNetDevice::SendFrom (Ptr<Packet> packet, const Address& src, const Address& de
   return true;
 }
 
+ssize_t
+FdNetDevice::Write (uint8_t *buffer, size_t length)
+{
+  NS_LOG_FUNCTION (this << buffer << length);
+
+  return write (m_fd, buffer, length);
+}
+
 void
 FdNetDevice::SetFileDescriptor (int fd)
 {
@@ -606,6 +638,12 @@ FdNetDevice::SetFileDescriptor (int fd)
     {
       m_fd = fd;
     }
+}
+
+int
+FdNetDevice::GetFileDescriptor (void) const
+{
+  return m_fd;
 }
 
 void

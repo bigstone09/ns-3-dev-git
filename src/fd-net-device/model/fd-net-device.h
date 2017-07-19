@@ -137,6 +137,12 @@ public:
   void SetFileDescriptor (int fd);
 
   /**
+   * Get the associated file descriptor.
+   *
+   */
+  int GetFileDescriptor (void) const;
+
+  /**
    * Set a start time for the device.
    *
    * @param tStart the start time
@@ -187,8 +193,22 @@ public:
    */
   virtual void SetIsMulticast (bool multicast);
 
+  /**
+   * Write data to the device
+   * \param buffer pointer to the packet to write
+   * \param lenght lenght of the packet
+   * \return the number of written bytes
+   */
+  virtual ssize_t Write (uint8_t *buffer, size_t length);
+
 protected:
   virtual void DoDispose (void);
+
+  /**
+   * Get the file descriptor used for receive/send network traffic.
+   * \return the file descriptor used for receive/send network traffic.
+   */
+  int GetFd (void) const;
 
 private:
   /**
@@ -208,6 +228,17 @@ private:
    * Tear down the device
    */
   void StopDevice (void);
+
+  /**
+   * Create the FdReader object
+   * \return the created FdReader object
+   */
+  virtual Ptr<FdReader> DoCreateFdReader (void);
+
+  /**
+   * Complete additional actions, if any, to tear down the device
+   */
+  virtual void DoFinishStoppingDevice (void);
 
   /**
    * Callback to invoke when a new frame is received
@@ -261,7 +292,7 @@ private:
   /**
    * Reader for the file descriptor.
    */
-  Ptr<FdNetDeviceFdReader> m_fdReader;
+  Ptr<FdReader> m_fdReader;
 
   /**
    * The net device mac address.

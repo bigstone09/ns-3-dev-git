@@ -18,6 +18,7 @@ SOURCES = \
 	source/network.rst \
 	source/emulation-overview.rst \
 	source/traffic-control.rst \
+	source/file-descriptor.rst \
 	$(SRC)/antenna/doc/source/antenna.rst \
 	$(SRC)/antenna/doc/source/antenna-design.rst \
 	$(SRC)/antenna/doc/source/antenna-user.rst \
@@ -38,6 +39,7 @@ SOURCES = \
 	$(SRC)/mpi/doc/distributed.rst \
 	$(SRC)/energy/doc/energy.rst \
 	$(SRC)/fd-net-device/doc/fd-net-device.rst \
+	$(SRC)/fd-net-device/doc/netmap-net-device.rst \
 	$(SRC)/tap-bridge/doc/tap.rst \
 	$(SRC)/mesh/doc/source/mesh.rst \
 	$(SRC)/mesh/doc/source/mesh-user.rst \

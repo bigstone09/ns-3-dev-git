@@ -41,31 +41,38 @@ NetDeviceQueue::~NetDeviceQueue ()
 }
 
 bool
-NetDeviceQueue::IsStopped (void) const
+NetDeviceQueue::IsStopped (void)
 {
   NS_LOG_FUNCTION (this);
-  return m_stoppedByDevice || m_stoppedByQueueLimits;
+  m_mutex.Lock ();
+  bool stopped = m_stoppedByDevice || m_stoppedByQueueLimits;
+  m_mutex.Unlock ();
+  return stopped;
 }
 
 void
 NetDeviceQueue::Start (void)
 {
   NS_LOG_FUNCTION (this);
+  m_mutex.Lock ();
   m_stoppedByDevice = false;
+  m_mutex.Unlock ();
 }
 
 void
 NetDeviceQueue::Stop (void)
 {
   NS_LOG_FUNCTION (this);
+  m_mutex.Lock ();
   m_stoppedByDevice = true;
+  m_mutex.Unlock ();
 }
 
 void
 NetDeviceQueue::Wake (void)
 {
   NS_LOG_FUNCTION (this);
-
+  m_mutex.Lock ();
   bool wasStoppedByDevice = m_stoppedByDevice;
   m_stoppedByDevice = false;
 
@@ -74,6 +81,7 @@ NetDeviceQueue::Wake (void)
     {
       Simulator::ScheduleNow (&NetDeviceQueue::m_wakeCallback, this);
     }
+  m_mutex.Unlock ();
 }
 
 void
@@ -90,12 +98,15 @@ NetDeviceQueue::NotifyQueuedBytes (uint32_t bytes)
     {
       return;
     }
+  m_mutex.Lock ();
   m_queueLimits->Queued (bytes);
   if (m_queueLimits->Available () >= 0)
     {
+      m_mutex.Unlock ();
       return;
     }
   m_stoppedByQueueLimits = true;
+  m_mutex.Unlock ();
 }
 
 void
@@ -106,9 +117,11 @@ NetDeviceQueue::NotifyTransmittedBytes (uint32_t bytes)
     {
       return;
     }
+  m_mutex.Lock ();
   m_queueLimits->Completed (bytes);
   if (m_queueLimits->Available () < 0)
     {
+      m_mutex.Unlock ();
       return;
     }
   bool wasStoppedByQueueLimits = m_stoppedByQueueLimits;
@@ -118,6 +131,7 @@ NetDeviceQueue::NotifyTransmittedBytes (uint32_t bytes)
     {
       Simulator::ScheduleNow (&NetDeviceQueue::m_wakeCallback, this);
     }
+  m_mutex.Unlock ();
 }
 
 void

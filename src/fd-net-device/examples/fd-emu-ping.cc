@@ -92,7 +92,12 @@ main (int argc, char *argv[])
   NS_LOG_INFO ("Ping Emulation Example");
 
   std::string deviceName ("eth0");
-  std::string remote ("173.194.34.51"); // example.com
+  std::string remote ("10.0.2.2"); // example.com
+#ifdef HAVE_PACKET_H
+  std::string emuMode ("raw");
+#else        // HAVE_NETMAP_USER_H is true (otherwise this example is not compiled)
+  std::string emuMode ("netmap");
+#endif
 
   //
   // Allow the user to override any of the defaults at run-time, via
@@ -101,10 +106,11 @@ main (int argc, char *argv[])
   CommandLine cmd;
   cmd.AddValue ("deviceName", "Device name", deviceName);
   cmd.AddValue ("remote", "Remote IP address (dotted decimal only please)", remote);
+  cmd.AddValue ("emuMode", "Emulation mode in {raw, netmap}", emuMode);
   cmd.Parse (argc, argv);
 
   Ipv4Address remoteIp (remote.c_str ());
-  Ipv4Address localIp ("1.2.3.4");
+  Ipv4Address localIp ("10.0.2.1");
   NS_ABORT_MSG_IF (localIp == "1.2.3.4", "You must change the local IP address before running this example");
 
   Ipv4Mask localMask ("255.255.255.0");
@@ -149,9 +155,32 @@ main (int argc, char *argv[])
   // OUI flying around.  Be aware.
   //
   NS_LOG_INFO ("Create Device");
-  EmuFdNetDeviceHelper emu;
-  emu.SetDeviceName (deviceName);
-  NetDeviceContainer devices = emu.Install (node);
+
+  FdNetDeviceHelper* helper = nullptr;
+
+#ifdef HAVE_PACKET_H
+  if (emuMode == "raw")
+    {
+      EmuFdNetDeviceHelper* raw = new EmuFdNetDeviceHelper;
+      raw->SetDeviceName (deviceName);
+      helper = raw;
+    }
+#endif
+#ifdef HAVE_NETMAP_USER_H
+  if (emuMode == "netmap")
+    {
+      NetmapNetDeviceHelper* netmap = new NetmapNetDeviceHelper;
+      netmap->SetDeviceName (deviceName);
+      helper = netmap;
+    }
+#endif
+
+  if (helper == nullptr)
+    {
+      NS_ABORT_MSG (emuMode << " not supported.");
+    }
+
+  NetDeviceContainer devices = helper->Install (node);
   Ptr<NetDevice> device = devices.Get (0);
   device->SetAttribute ("Address", Mac48AddressValue (Mac48Address::Allocate ()));
 
@@ -188,7 +217,7 @@ main (int argc, char *argv[])
   // the default gateway on your host and add it below, replacing the
   // "1.2.3.4" string.
   //
-  Ipv4Address gateway ("1.2.3.4");
+  Ipv4Address gateway ("10.0.2.2");
   NS_ABORT_MSG_IF (gateway == "1.2.3.4", "You must change the gateway IP address before running this example");
 
   Ipv4StaticRoutingHelper ipv4RoutingHelper;
@@ -223,14 +252,15 @@ main (int argc, char *argv[])
   //
   // Enable a promiscuous pcap trace to see what is coming and going on our device.
   //
-  emu.EnablePcap ("emu-ping", device, true);
+  helper->EnablePcap (emuMode + "-emu-ping", device, true);
 
   //
   // Now, do the actual emulation.
   //
-  NS_LOG_INFO ("Run Emulation.");
+  NS_LOG_INFO ("Run Emulation in " << emuMode << " mode.");
   Simulator::Stop (Seconds (22.0));
   Simulator::Run ();
   Simulator::Destroy ();
+  delete helper;
   NS_LOG_INFO ("Done.");
 }
