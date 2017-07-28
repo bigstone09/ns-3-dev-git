@@ -34,3 +34,7 @@ def build(bld):
         obj = bld.create_ns3_program('fd-planetlab-ping', ['fd-net-device', 'internet', 'internet-apps'])
         obj.source = 'fd-planetlab-ping.cc'
 
+    if bld.env['ENABLE_NETMAP_EMU']:
+        obj = bld.create_ns3_program('fd-netmap-emu-ping', ['fd-net-device', 'internet', 'internet-apps'])
+        obj.source = 'fd-netmap-emu-ping.cc'
+

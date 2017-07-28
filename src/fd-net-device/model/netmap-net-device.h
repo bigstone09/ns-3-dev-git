@@ -15,6 +15,8 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
+ * Author: Pasquale Imputato <p.imputato@gmail.com>
+ *
  */
 
 #ifndef NETMAP_NET_DEVICE_H
@@ -74,6 +76,12 @@ private:
   std::string m_deviceName; 
 
   struct netmap_if *m_nifp; //<<! Netmap interface representation
+
+  int m_nTxRings;
+  int m_nRxRings;
+
+  int m_nTxRingsSlots;
+  int m_nRxRingsSlots;
 
 };
 

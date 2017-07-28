@@ -28,7 +28,12 @@
 #include "ns3/packet.h"
 #include "ns3/simulator.h"
 #include "ns3/trace-helper.h"
+
+#ifdef HAVE_NETMAP_USER_H
+
 #include "ns3/netmap-net-device.h"
+
+#endif
 
 #include <arpa/inet.h>
 #include <errno.h>
