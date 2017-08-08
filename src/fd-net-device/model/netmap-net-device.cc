@@ -172,7 +172,32 @@ NetmapNetDevice::Read (uint8_t* buffer)
 {
   NS_LOG_FUNCTION (this << buffer);
 
-  return 0;
+  struct netmap_ring *rxring;
+
+  uint16_t lenght = 0;
+
+  rxring = NETMAP_RXRING (m_nifp, 0); // rx ring with index 0
+                                      // we should check each ring of a multiqueue device?
+
+  if (!nm_ring_empty (rxring))
+    {
+
+      uint32_t i   = rxring->cur;
+      uint8_t *buf = (uint8_t*) NETMAP_BUF (rxring, rxring->slot[i].buf_idx);
+      lenght = rxring->slot[i].len;
+      NS_LOG_DEBUG ("Received a packet of " << lenght << " bytes");
+
+      // copy buffer in the destination memory area
+      memcpy (buffer, buf, lenght);
+
+      // advance the netmap pointers
+      rxring->head = rxring->cur = nm_ring_next (rxring, i);
+
+      ioctl (m_fd, NIOCRXSYNC, NULL);
+
+    }
+
+  return lenght;
 }
 
 } // namespace ns3

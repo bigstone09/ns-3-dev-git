@@ -19,11 +19,45 @@
  *
  */
 
-/* 
- * This example show how to use the netmap emulation capabilities. It pings
+/*
+ * This example shows how to use the netmap emulation capabilities. It pings
  * a real host by means the netmap emulated device on the simulation host.
- * The example is and extension of the fd-emu-ping example.
- * 
+ * Also, this example is used to functional testing of the netmap emulation features on real device of ns-3.
+ * The example is an extension of the fd-emu-ping example.
+ *
+ * This script can be used if the host machine provides a netmap installation
+ * and the ns-3 configuration was made with the --enable-sudo options.
+ *
+ * Before to use this script, the user must load the netmap kernel module and set the
+ * interface in promisc mode.
+ *
+ * Finally, the emulation in netmap mode requires that the ns-3 IP for the emulated interface
+ * must be different from the OS IP for that interface but on the same subnet. Conversely, the packets
+ * destinated to the OS IP for that interface will be placed in the sw rings of the netmap.
+ *
+ * The output of this example will 20 s of ping in presence of 2 s of UDP traffic load
+ *
+ * PING  10.0.1.2 56(84) bytes of data.
+ * Received Response with RTT = +9374000.0ns
+ * 64 bytes from 10.0.1.2: icmp_seq=0 ttl=64 time=9 ms
+ * Received Response with RTT = +8154000.0ns
+ * 64 bytes from 10.0.1.2: icmp_seq=1 ttl=64 time=8 ms
+ * Received Response with RTT = +475000.0ns
+ * 64 bytes from 10.0.1.2: icmp_seq=2 ttl=64 time=0 ms
+ * Received Response with RTT = +372000.0ns
+ * 64 bytes from 10.0.1.2: icmp_seq=3 ttl=64 time=0 ms
+ * Received Response with RTT = +5769000.0ns
+ * 64 bytes from 10.0.1.2: icmp_seq=4 ttl=64 time=5 ms
+ * Received Response with RTT = +28510000.0ns
+ * 64 bytes from 10.0.1.2: icmp_seq=5 ttl=64 time=28 ms
+ * Received Response with RTT = +1206000.0ns
+ * 64 bytes from 10.0.1.2: icmp_seq=6 ttl=64 time=1 ms
+ * Received Response with RTT = +1215000.0ns
+ * 64 bytes from 10.0.1.2: icmp_seq=7 ttl=64 time=1 ms
+ * Received Response with RTT = +1268000.0ns
+ * 64 bytes from 10.0.1.2: icmp_seq=8 ttl=64 time=1 ms
+ * ...
+ *
  */
 
 #include "ns3/abort.h"
@@ -34,6 +68,7 @@
 #include "ns3/internet-apps-module.h"
 #include "ns3/ipv4-static-routing-helper.h"
 #include "ns3/ipv4-list-routing-helper.h"
+#include "ns3/applications-module.h"
 
 using namespace ns3;
 
@@ -50,20 +85,18 @@ main (int argc, char *argv[])
 {
   NS_LOG_INFO ("Ping Emulation Example");
 
-  std::string deviceName ("wlp2s0");
-  std::string remote ("8.8.4.4"); // example.com
+  std::string deviceName ("eth0");
+  // ping a real host connected back-to-back through the ethernet interfaces
+  std::string remote ("10.0.1.2");
 
-  //
-  // Allow the user to override any of the defaults at run-time, via
-  // command-line arguments
-  //
   CommandLine cmd;
   cmd.AddValue ("deviceName", "Device name", deviceName);
   cmd.AddValue ("remote", "Remote IP address (dotted decimal only please)", remote);
   cmd.Parse (argc, argv);
 
   Ipv4Address remoteIp (remote.c_str ());
-  Ipv4Address localIp ("192.168.1.170");
+  // the OS IP for the eth0 interfaces is 10.0.1.1, and we set the ns-3 IP for eth0 to 10.0.1.11
+  Ipv4Address localIp ("10.0.1.11");
   NS_ABORT_MSG_IF (localIp == "1.2.3.4", "You must change the local IP address before running this example");
 
   Ipv4Mask localMask ("255.255.255.0");
@@ -149,7 +182,7 @@ main (int argc, char *argv[])
   // the default gateway on your host and add it below, replacing the
   // "1.2.3.4" string.
   //
-  Ipv4Address gateway ("192.168.1.1");
+  Ipv4Address gateway ("10.0.1.2");
   NS_ABORT_MSG_IF (gateway == "1.2.3.4", "You must change the gateway IP address before running this example");
 
   Ipv4StaticRoutingHelper ipv4RoutingHelper;
@@ -180,6 +213,23 @@ main (int argc, char *argv[])
   // Hook a trace to print something when the response comes back.
   //
   Config::Connect ("/Names/app/Rtt", MakeCallback (&PingRtt));
+
+  // UDP traffic load
+  OnOffHelper onoff ("ns3::UdpSocketFactory", Ipv4Address::GetAny ());
+  onoff.SetAttribute ("OnTime",  StringValue ("ns3::ConstantRandomVariable[Constant=1]"));
+  onoff.SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0]"));
+  onoff.SetAttribute ("PacketSize", UintegerValue (1400));
+  onoff.SetAttribute ("DataRate", StringValue ("100Mbps"));
+  ApplicationContainer apps;
+
+  InetSocketAddress rmt (remoteIp, 7000);
+//   rmt.SetTos (0xb8);
+  AddressValue remoteAddress (rmt);
+  onoff.SetAttribute ("Remote", remoteAddress);
+
+  apps.Add (onoff.Install (node));
+  apps.Start (Seconds (10.0));
+  apps.Stop (Seconds (12.0));
 
   //
   // Enable a promiscuous pcap trace to see what is coming and going on our device.
