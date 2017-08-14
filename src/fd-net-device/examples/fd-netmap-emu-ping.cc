@@ -26,7 +26,7 @@
  * The example is an extension of the fd-emu-ping example.
  *
  * This script can be used if the host machine provides a netmap installation
- * and the ns-3 configuration was made with the --enable-sudo options.
+ * and the ns-3 configuration was made with the --enable-sudo option.
  *
  * Before to use this script, the user must load the netmap kernel module and set the
  * interface in promisc mode.
@@ -69,10 +69,18 @@
 #include "ns3/ipv4-static-routing-helper.h"
 #include "ns3/ipv4-list-routing-helper.h"
 #include "ns3/applications-module.h"
+#include "ns3/traffic-control-module.h"
 
 using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("PingEmulationExample");
+
+static void
+QdiscSampling (Ptr<QueueDisc> qdisc, double samplingPeriod)
+{
+  Simulator::Schedule (Seconds (samplingPeriod), &QdiscSampling, qdisc, samplingPeriod);
+  std::cout << qdisc->GetNPackets () << std::endl;
+}
 
 static void
 PingRtt (std::string context, Time rtt)
@@ -88,6 +96,9 @@ main (int argc, char *argv[])
   std::string deviceName ("eth0");
   // ping a real host connected back-to-back through the ethernet interfaces
   std::string remote ("10.0.1.2");
+
+  double samplingPeriod = 0.5; // s
+  uint32_t packetsSize = 1400; // bytes
 
   CommandLine cmd;
   cmd.AddValue ("deviceName", "Device name", deviceName);
@@ -142,8 +153,10 @@ main (int argc, char *argv[])
   //
   NS_LOG_INFO ("Create Device");
   EmuFdNetDeviceHelper emu;
+
   // set the netmap emulation mode
   emu.SetNetmapMode ();
+
   emu.SetDeviceName (deviceName);
   NetDeviceContainer devices = emu.Install (node);
   Ptr<NetDevice> device = devices.Get (0);
@@ -160,6 +173,13 @@ main (int argc, char *argv[])
   NS_LOG_INFO ("Add Internet Stack");
   InternetStackHelper internetStackHelper;
   internetStackHelper.Install (node);
+
+  // we install the pfifo_fast queue disc on the netmap emulated device and we sample the
+  // queue disc backlog in packets
+  TrafficControlHelper tch;
+  tch.SetRootQueueDisc ("ns3::PfifoFastQueueDisc");
+  QueueDiscContainer qdiscs = tch.Install (devices);
+  Simulator::Schedule (Seconds (samplingPeriod), &QdiscSampling, qdiscs.Get (0), samplingPeriod);
 
   NS_LOG_INFO ("Create IPv4 Interface");
   Ptr<Ipv4> ipv4 = node->GetObject<Ipv4> ();
@@ -199,6 +219,7 @@ main (int argc, char *argv[])
   Ptr<V4Ping> app = CreateObject<V4Ping> ();
   app->SetAttribute ("Remote", Ipv4AddressValue (remoteIp));
   app->SetAttribute ("Verbose", BooleanValue (true) );
+  app->SetAttribute ("Interval", TimeValue (Seconds (samplingPeriod)));
   node->AddApplication (app);
   app->SetStartTime (Seconds (1.0));
   app->SetStopTime (Seconds (21.0));
@@ -214,11 +235,13 @@ main (int argc, char *argv[])
   //
   Config::Connect ("/Names/app/Rtt", MakeCallback (&PingRtt));
 
+  Config::SetDefault ("ns3::TcpSocket::SegmentSize", UintegerValue (packetsSize));
+
   // UDP traffic load
   OnOffHelper onoff ("ns3::UdpSocketFactory", Ipv4Address::GetAny ());
   onoff.SetAttribute ("OnTime",  StringValue ("ns3::ConstantRandomVariable[Constant=1]"));
   onoff.SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0]"));
-  onoff.SetAttribute ("PacketSize", UintegerValue (1400));
+  onoff.SetAttribute ("PacketSize", UintegerValue (packetsSize));
   onoff.SetAttribute ("DataRate", StringValue ("100Mbps"));
   ApplicationContainer apps;
 
@@ -228,7 +251,7 @@ main (int argc, char *argv[])
   onoff.SetAttribute ("Remote", remoteAddress);
 
   apps.Add (onoff.Install (node));
-  apps.Start (Seconds (10.0));
+  apps.Start (Seconds (7.0));
   apps.Stop (Seconds (12.0));
 
   //

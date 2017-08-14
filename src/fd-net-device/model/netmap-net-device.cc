@@ -21,6 +21,8 @@
 
 #include "netmap-net-device.h"
 #include "ns3/log.h"
+#include "ns3/net-device-queue-interface.h"
+#include "ns3/simulator.h"
 
 #include <sys/ioctl.h>
 #include <sys/mman.h>
@@ -53,6 +55,7 @@ NetmapNetDevice::NetmapNetDevice ()
   m_nRxRings = 0;
   m_nTxRingsSlots = 0;
   m_nRxRingsSlots = 0;
+  m_txNotificationPeriod = Time (MicroSeconds (500));
 }
 
 NetmapNetDevice::~NetmapNetDevice ()
@@ -128,23 +131,48 @@ NetmapNetDevice::NetmapOpen ()
 
 }
 
-ssize_t
-NetmapNetDevice::Write (uint8_t* buffer, size_t length)
+void
+NetmapNetDevice::WaitingSlot ()
 {
-  NS_LOG_FUNCTION (this << buffer << length);
+  NS_LOG_FUNCTION (this);
 
   struct pollfd fds;
 
   fds.fd = m_fd;
   fds.events = POLLOUT;
 
-  poll (&fds, 1, -1);
+  struct netmap_ring *txring = NETMAP_TXRING (m_nifp, 0);
+
+  // if the queue was stopped we wait for the next available slot on the netmap ring and call the wake
+  if (m_queueInterface->GetTxQueue (0)->IsStopped ())
+    {
+      // we blocked for the next slot available in the netmap ring
+      // for netmap in emulated mode, if you disable the generic_txqdisc you are unblocked for the actual next slot available.
+      // conversely, without disabling the generic_txqdisc you are unblocked when in the generic_txqdisc there are no packets
+      poll (&fds, 1, -1);
+
+      NS_LOG_DEBUG ("Space in the netmap ring of " << nm_ring_space (txring) << " packets");
+
+      m_queueInterface->GetTxQueue (0)->Wake ();
+    }
+}
+
+ssize_t
+NetmapNetDevice::Write (uint8_t* buffer, size_t length)
+{
+  NS_LOG_FUNCTION (this << buffer << length);
 
   struct netmap_ring *txring;
 
   txring = NETMAP_TXRING (m_nifp, 0);
 
   uint16_t ret = -1;
+
+  if (m_queueInterface->GetTxQueue (0)->IsStopped ())
+    {
+      // the device queue is stopped and we cannot write other packets
+      return ret;
+    }
 
   if (!nm_ring_empty (txring))
     {
@@ -157,9 +185,21 @@ NetmapNetDevice::Write (uint8_t* buffer, size_t length)
 
       txring->head = txring->cur = nm_ring_next (txring, i);
 
-      ioctl (fds.fd, NIOCTXSYNC, NULL);
+      ioctl (m_fd, NIOCTXSYNC, NULL);
 
       ret = length;
+
+      // if there is no room for other packets then stop the queue
+      if (nm_ring_space(txring) == 0)
+        {
+          m_queueInterface->GetTxQueue (0)->Stop ();
+         // schedule the interrupt notification to signal the transmission completed
+         if (Simulator::IsExpired (m_id))
+           {
+             NS_LOG_DEBUG ("InterruptNotification schedule");
+             m_id = Simulator::Schedule (m_txNotificationPeriod, &NetmapNetDevice::WaitingSlot, this);
+           }
+        }
 
     }
 
@@ -198,6 +238,23 @@ NetmapNetDevice::Read (uint8_t* buffer)
     }
 
   return lenght;
+}
+
+void
+NetmapNetDevice::NotifyNewAggregate (void)
+{
+  NS_LOG_FUNCTION (this);
+  if (m_queueInterface == 0)
+    {
+      Ptr<NetDeviceQueueInterface> ndqi = this->GetObject<NetDeviceQueueInterface> ();
+      //verify that it's a valid netdevice queue interface and that
+      //the netdevice queue interface was not set before
+      if (ndqi != 0)
+        {
+          m_queueInterface = ndqi;
+        }
+    }
+  NetDevice::NotifyNewAggregate ();
 }
 
 } // namespace ns3

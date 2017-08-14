@@ -28,6 +28,7 @@
 namespace ns3 {
 
 class Node;
+class NetDeviceQueueInterface;
 
 /**
  * \ingroup fd-net-device
@@ -65,6 +66,8 @@ public:
 
   bool NetmapOpen ();
 
+  virtual void NotifyNewAggregate (void);
+
 protected:
 
 private:
@@ -73,15 +76,22 @@ private:
   
   virtual ssize_t Read (uint8_t * buffer);
 
+  virtual void WaitingSlot ();
+
   std::string m_deviceName; 
 
-  struct netmap_if *m_nifp; //<<! Netmap interface representation
+  struct netmap_if *m_nifp; //!< Netmap interface representation
 
   int m_nTxRings;
   int m_nRxRings;
 
   int m_nTxRingsSlots;
   int m_nRxRingsSlots;
+
+  Ptr<NetDeviceQueueInterface> m_queueInterface; //!< NetDevice queue interface
+
+  EventId m_id;
+  Time m_txNotificationPeriod;
 
 };
 
