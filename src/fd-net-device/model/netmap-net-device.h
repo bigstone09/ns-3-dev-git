@@ -29,6 +29,8 @@ namespace ns3 {
 
 class Node;
 class NetDeviceQueueInterface;
+class SystemThread;
+class NetDeviceQueue;
 
 /**
  * \ingroup fd-net-device
@@ -89,9 +91,15 @@ private:
   int m_nRxRingsSlots;
 
   Ptr<NetDeviceQueueInterface> m_queueInterface; //!< NetDevice queue interface
+  Ptr<NetDeviceQueue> m_queue;
 
   EventId m_id;
   Time m_txNotificationPeriod;
+
+  Ptr<SystemThread> m_waitingSlotThread;
+  bool m_waitingSlotThreadRun;
+  SystemCondition m_queueStopped;
+  SystemMutex m_mutex;
 
 };
 

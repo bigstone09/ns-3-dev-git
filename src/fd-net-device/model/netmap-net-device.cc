@@ -23,6 +23,9 @@
 #include "ns3/log.h"
 #include "ns3/net-device-queue-interface.h"
 #include "ns3/simulator.h"
+#include "ns3/system-thread.h"
+#include "ns3/system-condition.h"
+#include "ns3/system-mutex.h"
 
 #include <sys/ioctl.h>
 #include <sys/mman.h>
@@ -56,11 +59,13 @@ NetmapNetDevice::NetmapNetDevice ()
   m_nTxRingsSlots = 0;
   m_nRxRingsSlots = 0;
   m_txNotificationPeriod = Time (MicroSeconds (500));
+  m_queue = 0;
 }
 
 NetmapNetDevice::~NetmapNetDevice ()
 {
   NS_LOG_FUNCTION (this);
+  m_waitingSlotThreadRun = false;
 }
 
 void
@@ -127,34 +132,49 @@ NetmapNetDevice::NetmapOpen ()
   m_nTxRingsSlots = nmr.nr_tx_slots;
   m_nRxRingsSlots = nmr.nr_rx_slots;
 
+  m_waitingSlotThreadRun = true;
+  m_waitingSlotThread = Create<SystemThread> (MakeCallback (&NetmapNetDevice::WaitingSlot, this));
+  m_waitingSlotThread->Start ();
+
   return true;
 
 }
 
+// runs in a separate thread
 void
 NetmapNetDevice::WaitingSlot ()
 {
   NS_LOG_FUNCTION (this);
 
   struct pollfd fds;
+  memset (&fds, 0, sizeof(fds));
 
   fds.fd = m_fd;
   fds.events = POLLOUT;
 
   struct netmap_ring *txring = NETMAP_TXRING (m_nifp, 0);
 
-  // if the queue was stopped we wait for the next available slot on the netmap ring and call the wake
-  if (m_queueInterface->GetTxQueue (0)->IsStopped ())
+  while (m_waitingSlotThreadRun)
     {
-      // we blocked for the next slot available in the netmap ring
+      // we are waiting for the next queue stopped event
+      while (!m_queueStopped.GetCondition ())
+        {
+          m_queueStopped.TimedWait (200 * 1000000); // ns
+        }
+      m_queueStopped.SetCondition (false);
+
+      // we are blocked for the next slot available in the netmap ring.
       // for netmap in emulated mode, if you disable the generic_txqdisc you are unblocked for the actual next slot available.
-      // conversely, without disabling the generic_txqdisc you are unblocked when in the generic_txqdisc there are no packets
+      // conversely, without disabling the generic_txqdisc you are unblocked when in the generic_txqdisc there are no packets.
       poll (&fds, 1, -1);
 
       NS_LOG_DEBUG ("Space in the netmap ring of " << nm_ring_space (txring) << " packets");
 
-      m_queueInterface->GetTxQueue (0)->Wake ();
-    }
+      // we can now wake the queue after the acquisition of the mutex (to avoid concurrency problem with the main process)
+      m_mutex.Lock ();
+      m_queue->Wake ();
+      m_mutex.Unlock ();
+   }
 }
 
 ssize_t
@@ -189,16 +209,17 @@ NetmapNetDevice::Write (uint8_t* buffer, size_t length)
 
       ret = length;
 
-      // if there is no room for other packets then stop the queue
+      // if there is no room for other packets then stop the queue after the acquisition of the mutex.
+      // then, we wake up the thread to wait for the next slot available. in meanwhile, the main process can
+      // run separately.
       if (nm_ring_space(txring) == 0)
         {
-          m_queueInterface->GetTxQueue (0)->Stop ();
-         // schedule the interrupt notification to signal the transmission completed
-         if (Simulator::IsExpired (m_id))
-           {
-             NS_LOG_DEBUG ("InterruptNotification schedule");
-             m_id = Simulator::Schedule (m_txNotificationPeriod, &NetmapNetDevice::WaitingSlot, this);
-           }
+          m_mutex.Lock ();
+          m_queue->Stop ();
+          m_mutex.Unlock ();
+
+          m_queueStopped.SetCondition (true);
+          m_queueStopped.Signal ();
         }
 
     }
@@ -255,6 +276,9 @@ NetmapNetDevice::NotifyNewAggregate (void)
         }
     }
   NetDevice::NotifyNewAggregate ();
+  m_queueInterface->SetTxQueuesN (1);
+  m_queueInterface->CreateTxQueues ();
+  m_queue = m_queueInterface->GetTxQueue (0);
 }
 
 } // namespace ns3
