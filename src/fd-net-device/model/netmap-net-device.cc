@@ -58,8 +58,8 @@ NetmapNetDevice::NetmapNetDevice ()
   m_nRxRings = 0;
   m_nTxRingsSlots = 0;
   m_nRxRingsSlots = 0;
-  m_txNotificationPeriod = Time (MicroSeconds (500));
   m_queue = 0;
+  m_totalQueuedBytes = 0;
 }
 
 NetmapNetDevice::~NetmapNetDevice ()
@@ -140,6 +140,34 @@ NetmapNetDevice::NetmapOpen ()
 
 }
 
+uint32_t
+NetmapNetDevice::GetBytesInNetmapTxRing ()
+{
+  NS_LOG_FUNCTION (this);
+
+  struct netmap_ring *txring;
+  txring = NETMAP_TXRING (m_nifp, 0);
+
+  // we update the netmap ring status
+  ioctl (m_fd, NIOCTXSYNC, NULL);
+
+  int tail = txring->tail;
+
+  // the netmap ring has one slot reserved
+  int inQueue = (m_nTxRingsSlots -1) - nm_ring_space (txring);
+
+  uint32_t bytesInQueue = 0;
+
+  for (int i = 1; i < inQueue; i++)
+    {
+      bytesInQueue += txring->slot[tail].len;
+      tail ++;
+      tail = tail % m_nTxRingsSlots;
+    }
+
+  return bytesInQueue;
+}
+
 // runs in a separate thread
 void
 NetmapNetDevice::WaitingSlot ()
@@ -154,12 +182,30 @@ NetmapNetDevice::WaitingSlot ()
 
   struct netmap_ring *txring = NETMAP_TXRING (m_nifp, 0);
 
+  uint32_t prevTotalTransmittedBytes = 0;
+
   while (m_waitingSlotThreadRun)
     {
       // we are waiting for the next queue stopped event
       while (!m_queueStopped.GetCondition ())
         {
-          m_queueStopped.TimedWait (200 * 1000000); // ns
+          // we need of a nearly periodic notification to queue limits of the transmitted bytes.
+          // we use this thread to notify about the transmitted bytes in the sleep period (alternatively, we can consider a
+          // periodic schedule of a function).
+
+          // we calculate the total transmitted bytes as differences between the total queued and the current in queue
+          // also, we calculate the transmitted bytes in the sleep period as difference between the current total transmitted
+          // and the previous total transmitted
+          uint32_t totalTransmittedBytes = m_totalQueuedBytes - GetBytesInNetmapTxRing ();
+          uint32_t deltaBytes = totalTransmittedBytes - prevTotalTransmittedBytes;
+          NS_LOG_DEBUG (deltaBytes << " delta transmitted bytes");
+          prevTotalTransmittedBytes = totalTransmittedBytes;
+          if (m_queue)
+            {
+              m_queue->NotifyTransmittedBytes (deltaBytes);
+            }
+
+          m_queueStopped.TimedWait (1 * 1000000); // ns
         }
       m_queueStopped.SetCondition (false);
 
@@ -208,6 +254,10 @@ NetmapNetDevice::Write (uint8_t* buffer, size_t length)
       ioctl (m_fd, NIOCTXSYNC, NULL);
 
       ret = length;
+
+      // update the total transmitted bytes counter and notify queue limits of the queued bytes
+      m_totalQueuedBytes += length;
+      m_queue->NotifyQueuedBytes (length);
 
       // if there is no room for other packets then stop the queue after the acquisition of the mutex.
       // then, we wake up the thread to wait for the next slot available. in meanwhile, the main process can

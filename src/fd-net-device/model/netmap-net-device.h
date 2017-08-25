@@ -61,45 +61,67 @@ public:
 
   /**
    * Set the emulated device name of this device.
-   *
    * \param deviceName The emulated device name of this device.
    */
   void SetDeviceName (std::string deviceName);
 
+  /**
+   * Switch the interface in netmap mode.
+   */
   bool NetmapOpen ();
 
   virtual void NotifyNewAggregate (void);
+
+  /**
+   * Get the number of bytes currently in the netmap transmission ring.
+   * \returns The number of bytes in the netmap transmission ring.
+   */
+  uint32_t GetBytesInNetmapTxRing ();
 
 protected:
 
 private:
 
+  /**
+   * This function write a packet into the netmap transmission ring.
+   * \param buffer pointer to the packet to write
+   * \param lenght lenght of the packet
+   * \return the number of writed bytes
+   */
   virtual ssize_t Write (uint8_t *buffer, size_t length);
-  
+
+  /**
+   * This function read a packet from the netmap receiver ring.
+   * \param buffer pointer to destination memory area
+   * \return the number of read bytes
+   */
   virtual ssize_t Read (uint8_t * buffer);
 
+  /**
+   * \brief This function waits for the next available slot in the netmap tx ring.
+   * This function runs in a separate thread.
+   */
   virtual void WaitingSlot ();
 
-  std::string m_deviceName; 
+  std::string m_deviceName; //!< Name of the netmap emulated device
 
   struct netmap_if *m_nifp; //!< Netmap interface representation
 
-  int m_nTxRings;
-  int m_nRxRings;
+  int m_nTxRings; //!< Number of transmission rings
+  int m_nRxRings; //!< Number of receiver rings
 
-  int m_nTxRingsSlots;
-  int m_nRxRingsSlots;
+  int m_nTxRingsSlots; //!< Number of slots in the transmission rings
+  int m_nRxRingsSlots; //!< Number of slots in the receiver rings
 
   Ptr<NetDeviceQueueInterface> m_queueInterface; //!< NetDevice queue interface
-  Ptr<NetDeviceQueue> m_queue;
+  Ptr<NetDeviceQueue> m_queue;                   //!< NetDevice queue
 
-  EventId m_id;
-  Time m_txNotificationPeriod;
+  Ptr<SystemThread> m_waitingSlotThread; //!< Thread used to perform the flow control
+  bool m_waitingSlotThreadRun;           //!< Running flag of the flow control thread
+  SystemCondition m_queueStopped;        //!< Waiting condition of the flow control thread
+  SystemMutex m_mutex;                   //!< Mutex to acces to the device queue pointed
 
-  Ptr<SystemThread> m_waitingSlotThread;
-  bool m_waitingSlotThreadRun;
-  SystemCondition m_queueStopped;
-  SystemMutex m_mutex;
+  uint32_t m_totalQueuedBytes;           //!< Total queued bytes
 
 };
 
