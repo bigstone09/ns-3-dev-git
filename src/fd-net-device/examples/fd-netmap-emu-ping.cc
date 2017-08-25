@@ -76,10 +76,13 @@ using namespace ns3;
 NS_LOG_COMPONENT_DEFINE ("PingEmulationExample");
 
 static void
-QdiscSampling (Ptr<QueueDisc> qdisc, double samplingPeriod)
+StatsSampling (Ptr<QueueDisc> qdisc, Ptr<NetDevice> device, double samplingPeriod)
 {
-  Simulator::Schedule (Seconds (samplingPeriod), &QdiscSampling, qdisc, samplingPeriod);
-  std::cout << qdisc->GetNPackets () << std::endl;
+  Simulator::Schedule (Seconds (samplingPeriod), &StatsSampling, qdisc, device, samplingPeriod);
+  Ptr<NetmapNetDevice> d = StaticCast<NetmapNetDevice> (device);
+
+  std::cout << qdisc->GetNPackets () << " packets in the traffic-control queue disc" << std::endl;
+  std::cout << d->GetBytesInNetmapTxRing () << " bytes in the netmap tx ring" << std::endl;
 }
 
 static void
@@ -99,10 +102,12 @@ main (int argc, char *argv[])
 
   double samplingPeriod = 0.5; // s
   uint32_t packetsSize = 1400; // bytes
+  bool bql = false;
 
   CommandLine cmd;
   cmd.AddValue ("deviceName", "Device name", deviceName);
   cmd.AddValue ("remote", "Remote IP address (dotted decimal only please)", remote);
+  cmd.AddValue ("bql", "Enable byte queue limits", bql);
   cmd.Parse (argc, argv);
 
   Ipv4Address remoteIp (remote.c_str ());
@@ -175,11 +180,16 @@ main (int argc, char *argv[])
   internetStackHelper.Install (node);
 
   // we install the pfifo_fast queue disc on the netmap emulated device and we sample the
-  // queue disc backlog in packets
+  // queue disc backlog in packets and the inflight in the netmap tx ring in bytes
   TrafficControlHelper tch;
   tch.SetRootQueueDisc ("ns3::PfifoFastQueueDisc");
+  if (bql)
+    {
+      tch.SetQueueLimits ("ns3::DynamicQueueLimits");
+    }
+
   QueueDiscContainer qdiscs = tch.Install (devices);
-  Simulator::Schedule (Seconds (samplingPeriod), &QdiscSampling, qdiscs.Get (0), samplingPeriod);
+  Simulator::Schedule (Seconds (samplingPeriod), &StatsSampling, qdiscs.Get (0), device, samplingPeriod);
 
   NS_LOG_INFO ("Create IPv4 Interface");
   Ptr<Ipv4> ipv4 = node->GetObject<Ipv4> ();
