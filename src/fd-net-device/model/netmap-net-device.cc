@@ -202,7 +202,9 @@ NetmapNetDevice::WaitingSlot ()
           prevTotalTransmittedBytes = totalTransmittedBytes;
           if (m_queue)
             {
+              m_mutex.Lock ();
               m_queue->NotifyTransmittedBytes (deltaBytes);
+              m_mutex.Unlock ();
             }
 
           m_queueStopped.TimedWait (1 * 1000000); // ns
@@ -257,7 +259,9 @@ NetmapNetDevice::Write (uint8_t* buffer, size_t length)
 
       // update the total transmitted bytes counter and notify queue limits of the queued bytes
       m_totalQueuedBytes += length;
+      m_mutex.Lock ();
       m_queue->NotifyQueuedBytes (length);
+      m_mutex.Unlock ();
 
       // if there is no room for other packets then stop the queue after the acquisition of the mutex.
       // then, we wake up the thread to wait for the next slot available. in meanwhile, the main process can

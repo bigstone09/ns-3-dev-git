@@ -37,4 +37,5 @@ def build(bld):
     if bld.env['ENABLE_NETMAP_EMU']:
         obj = bld.create_ns3_program('fd-netmap-emu-ping', ['fd-net-device', 'internet', 'internet-apps', 'applications'])
         obj.source = 'fd-netmap-emu-ping.cc'
-
+        obj = bld.create_ns3_program('fd-netmap-emu-onoff', ['fd-net-device', 'internet', 'internet-apps', 'applications', 'traffic-control',])
+        obj.source = 'fd-netmap-emu-onoff.cc'

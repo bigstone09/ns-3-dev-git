@@ -79,10 +79,13 @@ static void
 StatsSampling (Ptr<QueueDisc> qdisc, Ptr<NetDevice> device, double samplingPeriod)
 {
   Simulator::Schedule (Seconds (samplingPeriod), &StatsSampling, qdisc, device, samplingPeriod);
-  Ptr<NetmapNetDevice> d = StaticCast<NetmapNetDevice> (device);
+  Ptr<NetmapNetDevice> d = DynamicCast<NetmapNetDevice> (device);
 
   std::cout << qdisc->GetNPackets () << " packets in the traffic-control queue disc" << std::endl;
-  std::cout << d->GetBytesInNetmapTxRing () << " bytes in the netmap tx ring" << std::endl;
+  if (d)
+    {
+      std::cout << d->GetBytesInNetmapTxRing () << " bytes in the netmap tx ring" << std::endl;
+    }
 }
 
 static void
