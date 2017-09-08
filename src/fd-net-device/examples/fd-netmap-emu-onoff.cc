@@ -79,17 +79,19 @@ main (int argc, char *argv[])
   std::string dataRate("100Mb/s");
   bool serverMode = false;
 
-  std::string deviceName ("eth0");
+  std::string deviceName ("eno1");
   std::string client ("10.0.1.11");
   std::string server ("10.0.1.22");
   std::string netmask ("255.255.255.0");
   std::string macClient ("00:00:00:00:00:01");
   std::string macServer ("00:00:00:00:00:02");
 
-  std::string transportProt = "Tcp";
+  std::string transportProt = "Udp";
   std::string socketType;
 
   bool netmapMode = true;
+  bool bql = false;
+  bool ping = false;
 
   double samplingPeriod = 0.5; // s
 
@@ -104,6 +106,8 @@ main (int argc, char *argv[])
   cmd.AddValue ("data-rate", "Data rate defaults to 1000Mb/s", dataRate);
   cmd.AddValue ("transportProt", "Transport protocol to use: Tcp, Udp", transportProt);
   cmd.AddValue ("netmapMode", "Enable the netmap emulation mode", netmapMode);
+  cmd.AddValue ("bql", "Enable byte queue limits", bql);
+  cmd.AddValue ("ping", "Enable server ping client side", ping);
   cmd.Parse (argc, argv);
 
   Ipv4Address remoteIp;
@@ -160,12 +164,20 @@ main (int argc, char *argv[])
   internetStackHelper.SetIpv4StackInstall(true);
   internetStackHelper.Install (node);
 
-  // Access link traffic control configuration
+  // traffic control configuration
   TrafficControlHelper tch;
   tch.SetRootQueueDisc ("ns3::PfifoFastQueueDisc", "Limit", UintegerValue (1000));
+  if (bql)
+    {
+      tch.SetQueueLimits ("ns3::DynamicQueueLimits");
+    }
   QueueDiscContainer qdiscs = tch.Install (device);
 
-  Simulator::Schedule (Seconds (samplingPeriod), &StatsSampling, qdiscs.Get (0), device, samplingPeriod);
+  // we enable the stats sampling client side only (we send traffic from client to server)
+  if (!serverMode)
+    {
+      Simulator::Schedule (Seconds (samplingPeriod), &StatsSampling, qdiscs.Get (0), device, samplingPeriod);
+    }
 
   NS_LOG_INFO ("Create IPv4 Interface");
   Ptr<Ipv4> ipv4 = node->GetObject<Ipv4> ();
@@ -174,6 +186,8 @@ main (int argc, char *argv[])
   ipv4->AddAddress (interface, address);
   ipv4->SetMetric (interface, 1);
   ipv4->SetUp (interface);
+
+  Config::SetDefault ("ns3::TcpSocket::SegmentSize", UintegerValue (packetSize));
 
   if(serverMode)
   {
@@ -200,16 +214,19 @@ main (int argc, char *argv[])
     clientApps.Start (Seconds (2.0));
     clientApps.Stop (Seconds (18.0));
 
-    // add ping application
-    Ptr<V4Ping> app = CreateObject<V4Ping> ();
-    app->SetAttribute ("Remote", Ipv4AddressValue (remoteIp));
-    app->SetAttribute ("Verbose", BooleanValue (true) );
-    app->SetAttribute ("Interval", TimeValue (Seconds (samplingPeriod)));
-    node->AddApplication (app);
-    app->SetStartTime (Seconds (1.0));
-    app->SetStopTime (Seconds (19.0));
+    if (ping)
+      {
+        // add ping application
+        Ptr<V4Ping> app = CreateObject<V4Ping> ();
+        app->SetAttribute ("Remote", Ipv4AddressValue (remoteIp));
+        app->SetAttribute ("Verbose", BooleanValue (true) );
+        app->SetAttribute ("Interval", TimeValue (Seconds (samplingPeriod)));
+        node->AddApplication (app);
+        app->SetStartTime (Seconds (1.0));
+        app->SetStopTime (Seconds (19.0));
 
-    Config::Connect ("/Names/app/Rtt", MakeCallback (&PingRtt));
+        Config::Connect ("/Names/app/Rtt", MakeCallback (&PingRtt));
+      }
 
     emu.EnablePcap ("fd-client", device);
   }

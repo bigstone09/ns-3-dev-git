@@ -148,9 +148,6 @@ NetmapNetDevice::GetBytesInNetmapTxRing ()
   struct netmap_ring *txring;
   txring = NETMAP_TXRING (m_nifp, 0);
 
-  // we update the netmap ring status
-  ioctl (m_fd, NIOCTXSYNC, NULL);
-
   int tail = txring->tail;
 
   // the netmap ring has one slot reserved
@@ -187,8 +184,13 @@ NetmapNetDevice::WaitingSlot ()
   while (m_waitingSlotThreadRun)
     {
       // we are waiting for the next queue stopped event
+      // in meanwhile, we periodically sync the netmap ring and notify about the transmitted bytes in the period
       while (!m_queueStopped.GetCondition ())
         {
+          // we sync the netmap ring periodically.
+          // traffic control can write packets during the period between two syncs.
+          ioctl (m_fd, NIOCTXSYNC, NULL);
+
           // we need of a nearly periodic notification to queue limits of the transmitted bytes.
           // we use this thread to notify about the transmitted bytes in the sleep period (alternatively, we can consider a
           // periodic schedule of a function).
@@ -202,12 +204,10 @@ NetmapNetDevice::WaitingSlot ()
           prevTotalTransmittedBytes = totalTransmittedBytes;
           if (m_queue)
             {
-              m_mutex.Lock ();
               m_queue->NotifyTransmittedBytes (deltaBytes);
-              m_mutex.Unlock ();
             }
 
-          m_queueStopped.TimedWait (1 * 1000000); // ns
+          m_queueStopped.TimedWait (200000); // ns
         }
       m_queueStopped.SetCondition (false);
 
@@ -218,10 +218,8 @@ NetmapNetDevice::WaitingSlot ()
 
       NS_LOG_DEBUG ("Space in the netmap ring of " << nm_ring_space (txring) << " packets");
 
-      // we can now wake the queue after the acquisition of the mutex (to avoid concurrency problem with the main process)
-      m_mutex.Lock ();
+      // we can now wake the queue.
       m_queue->Wake ();
-      m_mutex.Unlock ();
    }
 }
 
@@ -253,24 +251,18 @@ NetmapNetDevice::Write (uint8_t* buffer, size_t length)
 
       txring->head = txring->cur = nm_ring_next (txring, i);
 
-      ioctl (m_fd, NIOCTXSYNC, NULL);
-
       ret = length;
 
-      // update the total transmitted bytes counter and notify queue limits of the queued bytes
+      // we update the total transmitted bytes counter and notify queue limits of the queued bytes
       m_totalQueuedBytes += length;
-      m_mutex.Lock ();
       m_queue->NotifyQueuedBytes (length);
-      m_mutex.Unlock ();
 
-      // if there is no room for other packets then stop the queue after the acquisition of the mutex.
+      // if there is no room for other packets then stop the queue.
       // then, we wake up the thread to wait for the next slot available. in meanwhile, the main process can
       // run separately.
       if (nm_ring_space(txring) == 0)
         {
-          m_mutex.Lock ();
           m_queue->Stop ();
-          m_mutex.Unlock ();
 
           m_queueStopped.SetCondition (true);
           m_queueStopped.Signal ();

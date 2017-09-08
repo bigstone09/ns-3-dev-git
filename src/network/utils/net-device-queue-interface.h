@@ -29,6 +29,8 @@
 #include "ns3/queue.h"
 #include "ns3/net-device.h"
 
+#include "ns3/system-mutex.h"
+
 namespace ns3 {
 
 class QueueLimits;
@@ -90,7 +92,7 @@ public:
    * Called by queue discs to enquire about the status of a given transmission queue.
    * This is the analogous to the netif_xmit_stopped function of the Linux kernel.
    */
-  bool IsStopped (void) const;
+  bool IsStopped (void);
 
   /// Callback invoked by netdevices to wake upper layers
   typedef Callback< void > WakeCallback;
@@ -197,6 +199,7 @@ private:
   bool m_stoppedByQueueLimits;    //!< True if the queue has been stopped by a queue limits object
   Ptr<QueueLimits> m_queueLimits; //!< Queue limits object
   WakeCallback m_wakeCallback;    //!< Wake callback
+  SystemMutex m_mutex;            //!< Mutex to serialize the operations performed on the queue (requested in case of concurrent access)
 };
 
 
