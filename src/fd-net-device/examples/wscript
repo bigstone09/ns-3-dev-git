@@ -39,3 +39,5 @@ def build(bld):
         obj.source = 'fd-netmap-emu-ping.cc'
         obj = bld.create_ns3_program('fd-netmap-emu-onoff', ['fd-net-device', 'internet', 'internet-apps', 'applications', 'traffic-control',])
         obj.source = 'fd-netmap-emu-onoff.cc'
+        obj = bld.create_ns3_program('fd-netmap-emu-tc', ['fd-net-device', 'internet', 'internet-apps', 'applications', 'traffic-control',])
+        obj.source = 'fd-netmap-emu-tc.cc'

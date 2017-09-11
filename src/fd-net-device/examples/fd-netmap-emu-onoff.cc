@@ -22,6 +22,22 @@
 /*
  * The example is an extension of the fd-emu-onoff example.
  *
+ * This example is aimed at measuring the throughput of the
+ * NetmapNetDevice connected back-to-back to a simulated (with this example) UDP or TCP server or real application
+ * UDP or TCP server (e.g. iperf).
+ *
+ * The received throughput can be evaluate from the pcap generated from this script server side or
+ * by the server host (e.g., by wireshark in capture mode on the server host).
+ *
+ * The output of this example will be a ping response (if enable by the user) in presence of background
+ * traffic, the backlog in packets in traffic-control and the bytes inflight in the
+ * netmap transmission ring.
+ *
+ * The user can enable BQL to reduce the bytes in flight in the netmap transmission ring
+ * and keep more backlog in traffic-control qdisc.
+ *
+ * Requirements
+ * ************
  * This script can be used if the host machine provides a netmap installation
  * and the ns-3 configuration was made with the --enable-sudo option.
  *
@@ -61,7 +77,7 @@ StatsSampling (Ptr<QueueDisc> qdisc, Ptr<NetDevice> device, double samplingPerio
   std::cout << qdisc->GetNPackets () << " packets in the traffic-control queue disc" << std::endl;
   if (d)
     {
-      std::cout << d->GetBytesInNetmapTxRing () << " bytes in the netmap tx ring" << std::endl;
+      std::cout << d->GetBytesInNetmapTxRing () << " bytes inflight in the netmap tx ring" << std::endl;
     }
 }
 

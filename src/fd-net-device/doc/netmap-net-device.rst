@@ -98,25 +98,32 @@ Examples
 
 Two examples are provided about the NetmapNetDevice:
 
-* ``netmap-emu-ping.cc``:   This example is aimed at providing a test of this device on a real ethernet device.
+* ``fd-netmap-emu-ping.cc``:   This example is aimed at providing a test of this device on a real ethernet device.
   This example sends ICMP traffic over a real device emulated in netmap mode with UDP background traffic.
 
-* ``netmap-emu-onoff.cc``: This example is aimed at measuring the throughput of the 
+* ``fd-netmap-emu-onoff.cc``: This example is aimed at measuring the throughput of the
   NetmapNetDevice connected back-to-back to a simulated (with this example) UDP or TCP server or real application
   UDP or TCP server (e.g. iperf).
+
+* ``fd-netmap-emu-tc.cc``:  This example build a node with two interface in netmap mode.
+  The user can explore different qdiscs behaviours on the backlog of a device emulated with netmap.
 
 Performance evaluation
 **********************
 
 This device was evaluated by comparing the behavior of this device with the fd-net-device in emulated mode on a back-to-back through
 ethernet. We used the ``netmap-emu-onoff.cc`` example to perform this evaluation.
-The throughput performance of this device is very similar to the socket one (i.e., the fd-net-device configured in emulation mode).
 We compiled the |ns3| code in optimized mode to perfrom our evaluation.
+
+The throughput performance of this device is very similar to the socket one (i.e., the fd-net-device configured in emulation mode).
 We evaluated a UDP throughput up to 700 Mbps on a 1 Gbps link with netmap in emulated and in native mode with a packet size of 1400 bytes.
 In case of TCP the throughput performance is lower than the UDP case and it is of about 500 Mbps.
 We evaluated with oprofile a performance bottleneck in the modules IP (CalculateChecksun) and TCP of ns-3.
-Conversely, the delay performance is different from the socket one. Indeed, the delay evaluated with netmap is smaller than
-the socket ones. This is due to a more realistic device queue and queue disc occupancy with netmap compared with the higher
+
+Conversely, the delay performance with netmap is different from the socket one. Indeed, the delay evaluated with netmap is smaller than
+the socket one. This is due to a more realistic device queue and queue disc occupancy with netmap compared with the higher
 socket buffer occupancy (where the delay grows in an uncontrolled manner).
+
 Finally, in case of link saturation, e.g. in case of 100 Mbps ethernet link, the support for flow control and queue limits for this device
-allows keeping a backlog in traffic-control where the packets can be managed by advanced queue discs.
+allows keeping a backlog in traffic-control where the packets can be managed by advanced queue discs. The user can explore different qdiscs
+behaviours with netmap emulated device.

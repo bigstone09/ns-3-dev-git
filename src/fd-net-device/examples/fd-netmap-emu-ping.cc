@@ -20,11 +20,43 @@
  */
 
 /*
- * This example shows how to use the netmap emulation capabilities. It pings
- * a real host by means the netmap emulated device on the simulation host.
- * Also, this example is used to functional testing of the netmap emulation features on real device of ns-3.
  * The example is an extension of the fd-emu-ping example.
  *
+ * This example shows how to use the netmap emulation capabilities. It pings
+ * a real host by means the netmap emulated device on the simulation host.
+ * Also, this example is used to functional testing of the netmap emulation
+ * features on real device in ns-3.
+ *
+ * The output of this example will be a ping response in presence of UDP background
+ * traffic, the backlog in packets in traffic-control qdisc and the bytes inflight in the
+ * netmap transmission ring.
+ *
+ * The user can enable BQL to reduce the bytes in flight in the netmap transmission ring
+ * and keep more backlog in traffic-control qdisc.
+ *
+ * ...
+ * 64 bytes from 10.0.1.2: icmp_seq=17 ttl=64 time=124 ms
+ * 992 packets in the traffic-control queue disc
+ * 366268 bytes in the netmap tx ring
+ * 64 bytes from 10.0.1.2: icmp_seq=18 ttl=64 time=145 ms
+ * 991 packets in the traffic-control queue disc
+ * 366268 bytes in the netmap tx ring
+ * 64 bytes from 10.0.1.2: icmp_seq=19 ttl=64 time=145 ms
+ * 979 packets in the traffic-control queue disc
+ * 366268 bytes in the netmap tx ring
+ * 64 bytes from 10.0.1.2: icmp_seq=20 ttl=64 time=146 ms
+ * 979 packets in the traffic-control queue disc
+ * 366268 bytes in the netmap tx ring
+ * 64 bytes from 10.0.1.2: icmp_seq=21 ttl=64 time=145 ms
+ * 986 packets in the traffic-control queue disc
+ * 366268 bytes in the netmap tx ring
+ * 64 bytes from 10.0.1.2: icmp_seq=22 ttl=64 time=146 ms
+ * 0 packets in the traffic-control queue disc
+ * 0 bytes in the netmap tx ring
+ * ...
+ *
+ * Requirements
+ * ************
  * This script can be used if the host machine provides a netmap installation
  * and the ns-3 configuration was made with the --enable-sudo option.
  *
@@ -34,29 +66,6 @@
  * Finally, the emulation in netmap mode requires that the ns-3 IP for the emulated interface
  * must be different from the OS IP for that interface but on the same subnet. Conversely, the packets
  * destinated to the OS IP for that interface will be placed in the sw rings of the netmap.
- *
- * The output of this example will 20 s of ping in presence of 2 s of UDP traffic load
- *
- * PING  10.0.1.2 56(84) bytes of data.
- * Received Response with RTT = +9374000.0ns
- * 64 bytes from 10.0.1.2: icmp_seq=0 ttl=64 time=9 ms
- * Received Response with RTT = +8154000.0ns
- * 64 bytes from 10.0.1.2: icmp_seq=1 ttl=64 time=8 ms
- * Received Response with RTT = +475000.0ns
- * 64 bytes from 10.0.1.2: icmp_seq=2 ttl=64 time=0 ms
- * Received Response with RTT = +372000.0ns
- * 64 bytes from 10.0.1.2: icmp_seq=3 ttl=64 time=0 ms
- * Received Response with RTT = +5769000.0ns
- * 64 bytes from 10.0.1.2: icmp_seq=4 ttl=64 time=5 ms
- * Received Response with RTT = +28510000.0ns
- * 64 bytes from 10.0.1.2: icmp_seq=5 ttl=64 time=28 ms
- * Received Response with RTT = +1206000.0ns
- * 64 bytes from 10.0.1.2: icmp_seq=6 ttl=64 time=1 ms
- * Received Response with RTT = +1215000.0ns
- * 64 bytes from 10.0.1.2: icmp_seq=7 ttl=64 time=1 ms
- * Received Response with RTT = +1268000.0ns
- * 64 bytes from 10.0.1.2: icmp_seq=8 ttl=64 time=1 ms
- * ...
  *
  */
 
@@ -73,7 +82,7 @@
 
 using namespace ns3;
 
-NS_LOG_COMPONENT_DEFINE ("PingEmulationExample");
+NS_LOG_COMPONENT_DEFINE ("NetmapEmulationPingExample");
 
 static void
 StatsSampling (Ptr<QueueDisc> qdisc, Ptr<NetDevice> device, double samplingPeriod)
@@ -84,7 +93,7 @@ StatsSampling (Ptr<QueueDisc> qdisc, Ptr<NetDevice> device, double samplingPerio
   std::cout << qdisc->GetNPackets () << " packets in the traffic-control queue disc" << std::endl;
   if (d)
     {
-      std::cout << d->GetBytesInNetmapTxRing () << " bytes in the netmap tx ring" << std::endl;
+      std::cout << d->GetBytesInNetmapTxRing () << " bytes inflight in the netmap tx ring" << std::endl;
     }
 }
 
@@ -97,7 +106,7 @@ PingRtt (std::string context, Time rtt)
 int
 main (int argc, char *argv[])
 {
-  NS_LOG_INFO ("Ping Emulation Example");
+  NS_LOG_INFO ("Netmap Emulation Ping Example");
 
   std::string deviceName ("eno1");
   // ping a real host connected back-to-back through the ethernet interfaces
@@ -270,7 +279,7 @@ main (int argc, char *argv[])
   //
   // Enable a promiscuous pcap trace to see what is coming and going on our device.
   //
-  emu.EnablePcap ("emu-ping", device, true);
+  emu.EnablePcap ("netmap-emu-ping", device, true);
 
   //
   // Now, do the actual emulation.
