@@ -204,6 +204,16 @@ protected:
    */
   int m_fd;
 
+  /**
+   * Spin up the device
+   */
+  void StartDevice (void);
+
+  /**
+   * Tear down the device
+   */
+  void StopDevice (void);
+
 private:
 
   virtual ssize_t Write (uint8_t *buffer, size_t length);
@@ -217,16 +227,6 @@ private:
    * http://www.nsnam.org/wiki/NS-3_Python_Bindings#.22invalid_use_of_incomplete_type.22
    */
   FdNetDevice (FdNetDevice const &);
-
-  /**
-   * Spin up the device
-   */
-  void StartDevice (void);
-
-  /**
-   * Tear down the device
-   */
-  void StopDevice (void);
 
   /**
    * Callback to invoke when a new frame is received

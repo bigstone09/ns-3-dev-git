@@ -99,7 +99,7 @@ main (int argc, char *argv[])
 {
   NS_LOG_INFO ("Ping Emulation Example");
 
-  std::string deviceName ("eth0");
+  std::string deviceName ("eno1");
   // ping a real host connected back-to-back through the ethernet interfaces
   std::string remote ("10.0.1.2");
 

@@ -80,6 +80,16 @@ public:
 
 protected:
 
+  /**
+   * Spin up the device
+   */
+  void StartDevice (void);
+
+  /**
+   * Tear down the device
+   */
+  void StopDevice (void);
+
 private:
 
   /**

@@ -76,6 +76,26 @@ NetmapNetDevice::SetDeviceName (std::string deviceName)
   m_deviceName = deviceName;
 }
 
+void
+NetmapNetDevice::StartDevice (void)
+{
+  NS_LOG_FUNCTION (this);
+  ns3::FdNetDevice::StartDevice ();
+
+}
+
+void
+NetmapNetDevice::StopDevice (void)
+{
+  NS_LOG_FUNCTION (this);
+  ns3::FdNetDevice::StopDevice ();
+
+  m_waitingSlotThreadRun = false;
+  m_queueStopped.SetCondition (true);
+  m_queueStopped.Signal ();
+
+}
+
 bool
 NetmapNetDevice::NetmapOpen ()
 {
@@ -95,8 +115,6 @@ NetmapNetDevice::NetmapOpen ()
   memset (&nmr, 0, sizeof (nmr));
 
   nmr.nr_version = NETMAP_API;
-  // setting of netmap flags, for instance
-  // nmr.nr_flags |= NR_TX_RINGS_ONLY;
 
   // setting the interface name in the netmap request
   strncpy (nmr.nr_name, m_deviceName.c_str (), m_deviceName.length ());
@@ -207,6 +225,8 @@ NetmapNetDevice::WaitingSlot ()
               m_queue->NotifyTransmittedBytes (deltaBytes);
             }
 
+          // we used a period to check and notify of 200 us; it is a value close to the interrupt coalescence
+          // period of a real device
           m_queueStopped.TimedWait (200000); // ns
         }
       m_queueStopped.SetCondition (false);
@@ -219,7 +239,10 @@ NetmapNetDevice::WaitingSlot ()
       NS_LOG_DEBUG ("Space in the netmap ring of " << nm_ring_space (txring) << " packets");
 
       // we can now wake the queue.
-      m_queue->Wake ();
+      if (m_queue)
+        {
+          m_queue->Wake ();
+        }
    }
 }
 
@@ -230,11 +253,12 @@ NetmapNetDevice::Write (uint8_t* buffer, size_t length)
 
   struct netmap_ring *txring;
 
+  // we use one ring also in case of multiqueue device to perform a fine flow control on that ring
   txring = NETMAP_TXRING (m_nifp, 0);
 
   uint16_t ret = -1;
 
-  if (m_queueInterface->GetTxQueue (0)->IsStopped ())
+  if (m_queue->IsStopped ())
     {
       // the device queue is stopped and we cannot write other packets
       return ret;
@@ -283,28 +307,38 @@ NetmapNetDevice::Read (uint8_t* buffer)
 
   uint16_t lenght = 0;
 
-  rxring = NETMAP_RXRING (m_nifp, 0); // rx ring with index 0
-                                      // we should check each ring of a multiqueue device?
-
-  if (!nm_ring_empty (rxring))
+  int rxRingIndex = 0;
+  // we have a packet in one of the receiver rings.
+  // we check for the first non empty receiver ring of a multiqueue device.
+  while (rxRingIndex < m_nRxRings)
     {
+      rxring = NETMAP_RXRING (m_nifp, rxRingIndex);
 
-      uint32_t i   = rxring->cur;
-      uint8_t *buf = (uint8_t*) NETMAP_BUF (rxring, rxring->slot[i].buf_idx);
-      lenght = rxring->slot[i].len;
-      NS_LOG_DEBUG ("Received a packet of " << lenght << " bytes");
+      if (!nm_ring_empty (rxring))
+        {
 
-      // copy buffer in the destination memory area
-      memcpy (buffer, buf, lenght);
+          uint32_t i   = rxring->cur;
+          uint8_t *buf = (uint8_t*) NETMAP_BUF (rxring, rxring->slot[i].buf_idx);
+          lenght = rxring->slot[i].len;
+          NS_LOG_DEBUG ("Received a packet of " << lenght << " bytes");
 
-      // advance the netmap pointers
-      rxring->head = rxring->cur = nm_ring_next (rxring, i);
+          // copy buffer in the destination memory area
+          memcpy (buffer, buf, lenght);
 
-      ioctl (m_fd, NIOCRXSYNC, NULL);
+          // advance the netmap pointers
+          rxring->head = rxring->cur = nm_ring_next (rxring, i);
 
+          ioctl (m_fd, NIOCRXSYNC, NULL);
+
+          return lenght;
+
+        }
+
+      rxRingIndex++;
     }
 
   return lenght;
+
 }
 
 void
