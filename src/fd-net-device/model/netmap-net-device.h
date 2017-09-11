@@ -119,7 +119,6 @@ private:
   Ptr<SystemThread> m_waitingSlotThread; //!< Thread used to perform the flow control
   bool m_waitingSlotThreadRun;           //!< Running flag of the flow control thread
   SystemCondition m_queueStopped;        //!< Waiting condition of the flow control thread
-  SystemMutex m_mutex;                   //!< Mutex to access to the device queue pointer
 
   uint32_t m_totalQueuedBytes;           //!< Total queued bytes
 
