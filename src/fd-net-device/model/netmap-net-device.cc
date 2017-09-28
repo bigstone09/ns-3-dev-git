@@ -183,6 +183,17 @@ NetmapNetDevice::GetBytesInNetmapTxRing ()
   return bytesInQueue;
 }
 
+int
+NetmapNetDevice::GetSpaceInNetmapTxRing () const
+{
+  NS_LOG_FUNCTION (this);
+
+  struct netmap_ring *txring;
+  txring = NETMAP_TXRING (m_nifp, 0);
+
+  return nm_ring_space (txring);
+}
+
 // runs in a separate thread
 void
 NetmapNetDevice::WaitingSlot ()
@@ -234,6 +245,8 @@ NetmapNetDevice::WaitingSlot ()
       // we are blocked for the next slot available in the netmap ring.
       // for netmap in emulated mode, if you disable the generic_txqdisc you are unblocked for the actual next slot available.
       // conversely, without disabling the generic_txqdisc you are unblocked when in the generic_txqdisc there are no packets.
+      ioctl (m_fd, NIOCTXSYNC, NULL);
+
       poll (&fds, 1, -1);
 
       NS_LOG_DEBUG ("Space in the netmap ring of " << nm_ring_space (txring) << " packets");
@@ -291,7 +304,6 @@ NetmapNetDevice::Write (uint8_t* buffer, size_t length)
           m_queueStopped.SetCondition (true);
           m_queueStopped.Signal ();
         }
-
     }
 
   return ret;
@@ -359,6 +371,13 @@ NetmapNetDevice::NotifyNewAggregate (void)
   m_queueInterface->SetTxQueuesN (1);
   m_queueInterface->CreateTxQueues ();
   m_queue = m_queueInterface->GetTxQueue (0);
+}
+
+Ptr<NetDeviceQueue>
+NetmapNetDevice::GetTxQueue () const
+{
+  NS_LOG_FUNCTION (this);
+  return m_queue;
 }
 
 } // namespace ns3

@@ -78,6 +78,26 @@ public:
    */
   uint32_t GetBytesInNetmapTxRing ();
 
+  /**
+   * Get the number of slots currently available in the netmap transmission ring.
+   * \returns The number of slots currently available in the netmap transmission ring.
+   */
+  int GetSpaceInNetmapTxRing () const;
+
+  /**
+   * This function write a packet into the netmap transmission ring.
+   * \param buffer pointer to the packet to write
+   * \param lenght lenght of the packet
+   * \return the number of writed bytes
+   */
+  virtual ssize_t Write (uint8_t *buffer, size_t length);
+
+  /**
+   * Get the NetDeviceQueue associated with the netmap transmission ring.
+   * \returns The NetDeviceQueue associated with the netmap transmission ring.
+   */
+  Ptr<NetDeviceQueue> GetTxQueue () const;
+
 protected:
 
   /**
@@ -92,13 +112,6 @@ protected:
 
 private:
 
-  /**
-   * This function write a packet into the netmap transmission ring.
-   * \param buffer pointer to the packet to write
-   * \param lenght lenght of the packet
-   * \return the number of writed bytes
-   */
-  virtual ssize_t Write (uint8_t *buffer, size_t length);
 
   /**
    * This function read a packet from the netmap receiver ring.

@@ -196,6 +196,8 @@ public:
    */
   virtual void SetIsMulticast (bool multicast);
 
+  virtual ssize_t Write (uint8_t *buffer, size_t length);
+
 protected:
   virtual void DoDispose (void);
 
@@ -215,8 +217,6 @@ protected:
   void StopDevice (void);
 
 private:
-
-  virtual ssize_t Write (uint8_t *buffer, size_t length);
 
   virtual ssize_t Read (uint8_t *buffer);
 
