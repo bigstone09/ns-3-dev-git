@@ -74,6 +74,7 @@
 #include "ns3/traffic-control-module.h"
 
 #include <chrono>
+#include <unistd.h> // usleep
 
 using namespace ns3;
 
@@ -129,6 +130,7 @@ Send (Ptr<FdNetDevice> device, int mode)
             {
               // we are waiting for available slots in the
               // netmap ring
+              usleep (10);
             }
         }
 
@@ -167,6 +169,7 @@ Send (Ptr<FdNetDevice> device, int mode)
           std::cout << sent << " packets sent in "<< dur.count () << " ms, failed " << failed <<" (" << estimatedThr << " Mbps estimanted throughput)" << std::endl ;
 
           sent = 0;
+          failed = 0;
           t1 = std::chrono::high_resolution_clock::now();
 
         }

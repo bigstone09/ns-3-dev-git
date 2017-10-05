@@ -92,7 +92,7 @@ main (int argc, char *argv[])
 {
   uint16_t sinkPort = 8000;
   uint32_t packetSize = 1400; // bytes
-  std::string dataRate("100Mb/s");
+  std::string dataRate("950Mb/s");
   bool serverMode = false;
 
   std::string deviceName ("eno1");
@@ -210,8 +210,8 @@ main (int argc, char *argv[])
     Address sinkLocalAddress (InetSocketAddress (localIp, sinkPort));
     PacketSinkHelper sinkHelper (socketType, sinkLocalAddress);
     ApplicationContainer sinkApp = sinkHelper.Install (node);
-    sinkApp.Start (Seconds (0.1));
-    sinkApp.Stop (Seconds (20.0));
+    sinkApp.Start (Seconds (1));
+    sinkApp.Stop (Seconds (30.0));
     
     emu.EnablePcap ("fd-server", device);
   }
@@ -227,8 +227,8 @@ main (int argc, char *argv[])
     onoff.SetAttribute ("PacketSize", UintegerValue (packetSize));
 
     ApplicationContainer clientApps = onoff.Install (node);
-    clientApps.Start (Seconds (2.0));
-    clientApps.Stop (Seconds (18.0));
+    clientApps.Start (Seconds (6.0));
+    clientApps.Stop (Seconds (26.0));
 
     if (ping)
       {
@@ -238,8 +238,8 @@ main (int argc, char *argv[])
         app->SetAttribute ("Verbose", BooleanValue (true) );
         app->SetAttribute ("Interval", TimeValue (Seconds (samplingPeriod)));
         node->AddApplication (app);
-        app->SetStartTime (Seconds (1.0));
-        app->SetStopTime (Seconds (19.0));
+        app->SetStartTime (Seconds (5.0));
+        app->SetStopTime (Seconds (27.0));
 
         Config::Connect ("/Names/app/Rtt", MakeCallback (&PingRtt));
       }
@@ -247,7 +247,7 @@ main (int argc, char *argv[])
     emu.EnablePcap ("fd-client", device);
   }
 
-  Simulator::Stop (Seconds (20.1));
+  Simulator::Stop (Seconds (30));
   Simulator::Run ();
   Simulator::Destroy ();
 
