@@ -27,6 +27,7 @@
 // #include "lte-mac-sap.h"
 #include "ns3/lte-rlc-sap.h"
 // #include "ff-mac-sched-sap.h"
+#include "ns3/net-device-queue-interface.h"
 
 namespace ns3 {
 
@@ -167,6 +168,13 @@ LteRlc::GetLteMacSapUser ()
 {
   NS_LOG_FUNCTION (this);
   return m_macSapUser;
+}
+
+void
+LteRlc::SetNetDeviceQueue (Ptr< NetDeviceQueue > ndq)
+{
+  NS_LOG_FUNCTION (this << ndq);
+  m_netDeviceQueue = ndq;
 }
 
 

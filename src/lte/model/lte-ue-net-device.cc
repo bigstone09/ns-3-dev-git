@@ -49,6 +49,7 @@
 #include <ns3/lte-ue-component-carrier-manager.h>
 #include <ns3/object-map.h>
 #include <ns3/object-factory.h>
+#include "ns3/net-device-queue-interface.h"
 
 namespace ns3 {
 
@@ -292,5 +293,21 @@ LteUeNetDevice::Send (Ptr<Packet> packet, const Address& dest, uint16_t protocol
   return m_nas->Send (packet);
 }
 
+void
+LteUeNetDevice::NotifyNewAggregate (void)
+{
+  NS_LOG_FUNCTION (this);
+  if (m_queueInterface == 0)
+    {
+      Ptr<NetDeviceQueueInterface> ndqi = this->GetObject<NetDeviceQueueInterface> ();
+      if (ndqi != 0)
+        {
+          m_queueInterface = ndqi;
+          // flow control configuration
+          m_rrc->SetNetDeviceQueueInterface (ndqi);
+        }
+    }
+  LteNetDevice::NotifyNewAggregate ();
+}
 
 } // namespace ns3

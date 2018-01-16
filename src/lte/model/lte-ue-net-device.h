@@ -49,6 +49,7 @@ class LteUeRrc;
 class EpcUeNas;
 class EpcTft;
 class LteUeComponentCarrierManager;
+class NetDeviceQueueInterface;
 
 /**
  * \ingroup lte
@@ -172,6 +173,7 @@ public:
 protected:
   // inherited from Object
   virtual void DoInitialize (void);
+  virtual void NotifyNewAggregate (void);
 
 
 private:
@@ -201,6 +203,8 @@ private:
   uint32_t m_csgId; ///< the CSG ID
 
   std::map < uint8_t, Ptr<ComponentCarrierUe> > m_ccMap; ///< CC map
+
+  Ptr<NetDeviceQueueInterface> m_queueInterface;
 
 }; // end of class LteUeNetDevice
 

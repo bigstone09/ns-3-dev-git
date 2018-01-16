@@ -42,6 +42,8 @@ namespace ns3 {
 // class LteMacSapProvider;
 // class LteMacSapUser;
 
+class NetDeviceQueue;
+
 /**
  * This abstract base class defines the API to interact with the Radio Link Control
  * (LTE_RLC) in LTE, see 3GPP TS 36.322
@@ -131,7 +133,9 @@ public:
 
   /// \todo MRE What is the sense to duplicate all the interfaces here???
   // NB to avoid the use of multiple inheritance
-  
+
+  void SetNetDeviceQueue (Ptr<NetDeviceQueue> ndq);
+
 protected:
   // Interface forwarded by LteRlcSapProvider
   /**
@@ -183,6 +187,8 @@ protected:
    * Used to inform of a PDU reception from the MAC SAP user
    */
   TracedCallback<uint16_t, uint8_t, uint32_t, uint64_t> m_rxPdu;
+
+  Ptr<NetDeviceQueue> m_netDeviceQueue;
 
 };
 

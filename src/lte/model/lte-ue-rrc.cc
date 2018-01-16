@@ -36,6 +36,7 @@
 #include <ns3/lte-rlc-am.h>
 #include <ns3/lte-pdcp.h>
 #include <ns3/lte-radio-bearer-info.h>
+#include "ns3/net-device-queue-interface.h"
 
 #include <cmath>
 
@@ -1381,6 +1382,11 @@ LteUeRrc::ApplyRadioResourceConfigDedicated (LteRrcSap::RadioResourceConfigDedic
           rlc->SetLteMacSapProvider (m_macSapProvider);
           rlc->SetRnti (m_rnti);
           rlc->SetLcId (dtamIt->logicalChannelIdentity);
+          NS_ASSERT (m_queueInterface != 0);
+          // set the proper device queue to the rlc
+          Ptr<NetDeviceQueue> ndq = m_queueInterface->GetTxQueue (dtamIt->drbIdentity - 1);
+          NS_ASSERT (ndq != 0);
+          rlc->SetNetDeviceQueue (ndq);
 
           Ptr<LteDataRadioBearerInfo> drbInfo = CreateObject<LteDataRadioBearerInfo> ();
           drbInfo->m_rlc = rlc;
@@ -3094,6 +3100,13 @@ LteUeRrc::SaveScellUeMeasurements (uint16_t sCellId, double rsrp, double rsrq,
 
 }   // end of void SaveUeMeasurements
 
+void
+LteUeRrc::SetNetDeviceQueueInterface (Ptr< NetDeviceQueueInterface > qi)
+{
+  NS_LOG_FUNCTION (this << qi);
+  NS_ASSERT (qi != 0);
+  m_queueInterface = qi;
+}
 
 } // namespace ns3
 
