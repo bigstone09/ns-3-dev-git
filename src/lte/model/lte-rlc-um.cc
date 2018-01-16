@@ -25,6 +25,7 @@
 #include "ns3/lte-rlc-um.h"
 #include "ns3/lte-rlc-sdu-status-tag.h"
 #include "ns3/lte-rlc-tag.h"
+#include "ns3/net-device-queue-interface.h"
 
 namespace ns3 {
 
@@ -86,6 +87,12 @@ LteRlcUm::DoTransmitPdcpPdu (Ptr<Packet> p)
 {
   NS_LOG_FUNCTION (this << m_rnti << (uint32_t) m_lcid << p->GetSize ());
 
+  NS_ASSERT (m_netDeviceQueue != 0);
+  if (m_netDeviceQueue->IsStopped ())
+    {
+      NS_LOG_DEBUG ("DoTransmit with queue stopped");
+    }
+
   if (m_txBufferSize + p->GetSize () <= m_maxTxBufferSize)
     {
       /** Store arrival time */
@@ -103,6 +110,7 @@ LteRlcUm::DoTransmitPdcpPdu (Ptr<Packet> p)
       m_txBufferSize += p->GetSize ();
       NS_LOG_LOGIC ("NumOfBuffers = " << m_txBuffer.size() );
       NS_LOG_LOGIC ("txBufferSize = " << m_txBufferSize);
+      m_netDeviceQueue->NotifyQueuedBytes (p->GetSize ());
     }
   else
     {
@@ -111,6 +119,12 @@ LteRlcUm::DoTransmitPdcpPdu (Ptr<Packet> p)
       NS_LOG_LOGIC ("MaxTxBufferSize = " << m_maxTxBufferSize);
       NS_LOG_LOGIC ("txBufferSize    = " << m_txBufferSize);
       NS_LOG_LOGIC ("packet size     = " << p->GetSize ());
+    }
+
+  if (m_txBufferSize + 1500 >= m_maxTxBufferSize)
+    {
+      // there is no room for other packets
+      m_netDeviceQueue->Stop ();
     }
 
   /** Report Buffer Status */
@@ -147,6 +161,7 @@ LteRlcUm::DoNotifyTxOpportunity (uint32_t bytes, uint8_t layer, uint8_t harqId, 
 
   // Remove the first packet from the transmission buffer.
   // If only a segment of the packet is taken, then the remaining is given back later
+
   if ( m_txBuffer.size () == 0 )
     {
       NS_LOG_LOGIC ("No data pending");
@@ -372,6 +387,14 @@ LteRlcUm::DoNotifyTxOpportunity (uint32_t bytes, uint8_t layer, uint8_t harqId, 
       framingInfo |= LteRlcHeader::NO_LAST_BYTE;
     }
 
+  // wake the queue
+  if ((m_netDeviceQueue->IsStopped ()) && m_txBufferSize + 1500 <= m_maxTxBufferSize)
+    {
+      m_netDeviceQueue->Wake ();
+    }
+  // notify the number of trasmitted bytes
+  m_netDeviceQueue->NotifyTransmittedBytes (packet->GetSize ());
+
   rlcHeader.SetFramingInfo (framingInfo);
 
   NS_LOG_LOGIC ("RLC header: " << rlcHeader);
@@ -398,6 +421,13 @@ LteRlcUm::DoNotifyTxOpportunity (uint32_t bytes, uint8_t layer, uint8_t harqId, 
       m_rbsTimer.Cancel ();
       m_rbsTimer = Simulator::Schedule (MilliSeconds (10), &LteRlcUm::ExpireRbsTimer, this);
     }
+
+  // start the queue tring to prevent future silent drop
+  if (m_netDeviceQueue->IsStopped () && (m_txBufferSize + 1500 < m_maxTxBufferSize))
+    {
+      m_netDeviceQueue->Start ();
+    }
+
 }
 
 void

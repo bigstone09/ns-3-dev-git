@@ -71,6 +71,7 @@ class LteUeCmacSapUser;
 class LteUeCmacSapProvider;
 class LteDataRadioBearerInfo;
 class LteSignalingRadioBearerInfo;
+class NetDeviceQueueInterface;
 
 /**
  *
@@ -1151,7 +1152,12 @@ private:
    */
   void ConnectionTimeout ();
 
+  Ptr<NetDeviceQueueInterface> m_queueInterface;
+
 public:
+
+  void SetNetDeviceQueueInterface (Ptr<NetDeviceQueueInterface> qi);
+
   /** 
    * The number of component carriers.
    */

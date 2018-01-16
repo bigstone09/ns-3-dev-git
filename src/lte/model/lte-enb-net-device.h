@@ -47,6 +47,7 @@ class LteHandoverAlgorithm;
 class LteAnr;
 class LteFfrAlgorithm;
 class LteEnbComponentCarrierManager;
+class NetDeviceQueueInterface;
 
 /**
  * \ingroup lte
@@ -216,7 +217,7 @@ public:
 protected:
   // inherited from Object
   virtual void DoInitialize (void);
-
+  virtual void NotifyNewAggregate (void);
 
 private:
   bool m_isConstructed; ///< is constructed?
@@ -256,6 +257,8 @@ private:
   std::map < uint8_t, Ptr<ComponentCarrierEnb> > m_ccMap; /**< ComponentCarrier map */
   
   Ptr<LteEnbComponentCarrierManager> m_componentCarrierManager; ///< the component carrier manager of this eNb
+
+  Ptr<NetDeviceQueueInterface> m_queueInterface;
 
 }; // end of class LteEnbNetDevice
 
