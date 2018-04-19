@@ -43,8 +43,7 @@
 #include <ns3/lte-rlc-am.h>
 #include <ns3/lte-pdcp.h>
 
-
-
+#include "ns3/net-device-queue-interface.h"
 
 namespace ns3 {
 
@@ -394,6 +393,8 @@ UeManager::SetupDataRadioBearer (EpsBearer bearer, uint8_t bearerId, uint32_t gt
   ObjectFactory rlcObjectFactory;
   rlcObjectFactory.SetTypeId (rlcTypeId);
   Ptr<LteRlc> rlc = rlcObjectFactory.Create ()->GetObject<LteRlc> ();
+  // set netdevice queue to perform flow control and data bearer
+  rlc->SetNetDeviceQueue (m_netDeviceQueue);
   rlc->SetLteMacSapProvider (m_rrc->m_macSapProvider);
   rlc->SetRnti (m_rnti);
 
@@ -679,6 +680,14 @@ UeManager::RecvHandoverRequestAck (EpcX2SapUser::HandoverRequestAckParams params
     }
   m_rrc->m_x2SapProvider->SendSnStatusTransfer (sst);
 }
+
+void
+UeManager::SetNetDeviceQueue(Ptr< NetDeviceQueue > ndq)
+{
+  NS_LOG_FUNCTION (this << ndq);
+  m_netDeviceQueue = ndq;
+}
+
 
 
 LteRrcSap::RadioResourceConfigDedicated
@@ -2615,6 +2624,8 @@ LteEnbRrc::AddUe (UeManager::State state, uint8_t componentCarrierId)
   Ptr<UeManager> ueManager = CreateObject<UeManager> (this, rnti, state, componentCarrierId);
   m_ccmRrcSapProvider-> AddUe (rnti, (uint8_t)state);
   m_ueMap.insert (std::pair<uint16_t, Ptr<UeManager> > (rnti, ueManager));
+  // set the netdevice queue of the UE manager to perform flow control
+  ueManager->SetNetDeviceQueue (m_netDeviceQueueInterface->GetTxQueue (rnti - 1));
   ueManager->Initialize ();
   const uint16_t cellId = ComponentCarrierToCellId (componentCarrierId);
   NS_LOG_DEBUG (this << " New UE RNTI " << rnti << " cellId " << cellId << " srs CI " << ueManager->GetSrsConfigurationIndex ());
@@ -2874,6 +2885,12 @@ LteEnbRrc::SendSystemInformation ()
   Simulator::Schedule (m_systemInformationPeriodicity, &LteEnbRrc::SendSystemInformation, this);
 }
 
+void
+LteEnbRrc::SetNetDeviceQueueInterface(Ptr<NetDeviceQueueInterface> ndqi)
+{
+  NS_LOG_FUNCTION (this << ndqi);
+  m_netDeviceQueueInterface = ndqi;
+}
 
 } // namespace ns3
 

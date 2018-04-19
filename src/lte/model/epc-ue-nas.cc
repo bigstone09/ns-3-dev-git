@@ -26,6 +26,7 @@
 #include "lte-enb-net-device.h"
 #include "epc-ue-nas.h"
 #include "lte-as-sap.h"
+#include "ns3/net-device-queue-interface.h"
 
 namespace ns3 {
 
@@ -278,6 +279,14 @@ EpcUeNas::GetState () const
 {
   NS_LOG_FUNCTION (this);
   return m_state;
+}
+
+void
+EpcUeNas::SetNetDeviceQueueInterface (Ptr<NetDeviceQueueInterface> ndqi)
+{
+  NS_LOG_FUNCTION (this << ndqi);
+  m_netDeviceQueueInterface = ndqi;
+  m_netDeviceQueueInterface->SetTxQueuesN (11);
 }
 
 void 

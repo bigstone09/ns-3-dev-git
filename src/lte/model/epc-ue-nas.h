@@ -30,6 +30,7 @@ namespace ns3 {
 
 
 class EpcHelper;
+class NetDeviceQueueInterface;
 
 class EpcUeNas : public Object
 {
@@ -181,6 +182,8 @@ public:
    */
   typedef void (* StateTracedCallback)
     (const State oldState, const State newState);
+
+  void SetNetDeviceQueueInterface (Ptr<NetDeviceQueueInterface> ndqi);
  
 private:
 
@@ -247,6 +250,8 @@ private:
   };
 
   std::list<BearerToBeActivated> m_bearersToBeActivatedList; ///< bearers to be activated list
+
+  Ptr<NetDeviceQueueInterface> m_netDeviceQueueInterface;
 
 };
 

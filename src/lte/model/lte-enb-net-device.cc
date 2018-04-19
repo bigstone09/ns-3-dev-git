@@ -49,6 +49,8 @@
 #include <ns3/object-map.h>
 #include <ns3/object-factory.h>
 #include "ns3/net-device-queue-interface.h"
+#include "ns3/eps-bearer-tag.h"
+
 
 namespace ns3 {
 
@@ -433,9 +435,28 @@ LteEnbNetDevice::NotifyNewAggregate (void)
       if (ndqi != 0)
         {
           m_queueInterface = ndqi;
+          // we can have a different queue disc for each UE default bearer
+          // we set the max number of tx queues on an interfaces; actually, the maximumx number of supported UEs is 65535
+          m_queueInterface->SetTxQueuesN (255);
+          // the select queue allows to maps the packet in the corresponding tc queue disc
+          m_queueInterface->SetSelectQueueCallback (MakeCallback (&LteEnbNetDevice::SelectQueue, this));
+          m_rrc->SetNetDeviceQueueInterface (m_queueInterface);
         }
     }
   LteNetDevice::NotifyNewAggregate ();
+}
+
+uint8_t
+LteEnbNetDevice::SelectQueue (Ptr<QueueItem> item) const
+{
+  NS_LOG_FUNCTION (this << item);
+
+  EpsBearerTag tag;
+
+  Ptr<Packet> packet = item->GetPacket ();
+  bool found = packet->PeekPacketTag (tag); // rrc removes the tag
+  NS_ASSERT_MSG (found, "no EpsBearerTag found in packet to be sent");
+  return tag.GetRnti () - 1; // the RNTI is the UE index added to the eNB
 }
 
 } // namespace ns3

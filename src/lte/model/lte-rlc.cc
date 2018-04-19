@@ -108,6 +108,11 @@ TypeId LteRlc::GetTypeId (void)
   static TypeId tid = TypeId ("ns3::LteRlc")
     .SetParent<Object> ()
     .SetGroupName("Lte")
+    .AddAttribute ("FlowControl",
+                   "True for flow control towards upper layer",
+                   BooleanValue (false),
+                   MakeBooleanAccessor (&LteRlc::m_flowControl),
+                   MakeBooleanChecker ())
     .AddTraceSource ("TxPDU",
                      "PDU transmission notified to the MAC.",
                      MakeTraceSourceAccessor (&LteRlc::m_txPdu),

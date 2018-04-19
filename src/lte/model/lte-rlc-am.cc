@@ -26,6 +26,7 @@
 #include "ns3/lte-rlc-am.h"
 #include "ns3/lte-rlc-sdu-status-tag.h"
 #include "ns3/lte-rlc-tag.h"
+#include "ns3/net-device-queue-interface.h"
 
 
 namespace ns3 {
@@ -119,6 +120,11 @@ LteRlcAm::GetTypeId (void)
                    BooleanValue (false),
                    MakeBooleanAccessor (&LteRlcAm::m_txOpportunityForRetxAlwaysBigEnough),
                    MakeBooleanChecker ())
+    .AddAttribute ("MaxTxBufferSize",
+                   "Maximum size of the transmission buffer (in bytes)",
+                   UintegerValue (10 * 1024),
+                   MakeUintegerAccessor (&LteRlcAm::m_maxTxBufferSize),
+                   MakeUintegerChecker<uint32_t> ())
 
     ;
   return tid;
@@ -157,6 +163,12 @@ LteRlcAm::DoTransmitPdcpPdu (Ptr<Packet> p)
 {
   NS_LOG_FUNCTION (this << m_rnti << (uint32_t) m_lcid << p->GetSize ());
 
+  // NS_ASSERT (m_netDeviceQueue != 0);
+  if (m_netDeviceQueue && m_flowControl && (m_netDeviceQueue->IsStopped ()))
+    {
+      NS_LOG_DEBUG ("DoTransmit with queue stopped");
+    }
+
   /** Store arrival time */
   Time now = Simulator::Now ();
   RlcTag timeTag (now);
@@ -168,11 +180,33 @@ LteRlcAm::DoTransmitPdcpPdu (Ptr<Packet> p)
   tag.SetStatus (LteRlcSduStatusTag::FULL_SDU);
   p->AddPacketTag (tag);
 
-  NS_LOG_LOGIC ("Txon Buffer: New packet added");
-  m_txonBuffer.push_back (p);
-  m_txonBufferSize += p->GetSize ();
-  NS_LOG_LOGIC ("NumOfBuffers = " << m_txonBuffer.size() );
-  NS_LOG_LOGIC ("txonBufferSize = " << m_txonBufferSize);
+  if (m_txonBufferSize + p->GetSize () <= m_maxTxBufferSize)
+    {
+      NS_LOG_LOGIC ("Txon Buffer: New packet added");
+      m_txonBuffer.push_back (p);
+      m_txonBufferSize += p->GetSize ();
+      NS_LOG_LOGIC ("NumOfBuffers = " << m_txonBuffer.size() );
+      NS_LOG_LOGIC ("txonBufferSize = " << m_txonBufferSize);
+      // notify queued bytes
+      if (m_netDeviceQueue && m_flowControl)
+        {
+          m_netDeviceQueue->NotifyQueuedBytes (p->GetSize ());
+        }
+    }
+  else
+    {
+      // Discard full RLC SDU
+      NS_LOG_LOGIC ("TxBuffer is full. RLC SDU discarded");
+      NS_LOG_LOGIC ("MaxTxBufferSize = " << m_maxTxBufferSize);
+      NS_LOG_LOGIC ("txBufferSize    = " << m_txonBufferSize);
+      NS_LOG_LOGIC ("packet size     = " << p->GetSize ());
+    }
+
+  if (m_netDeviceQueue && m_flowControl && (m_txonBufferSize + 1500 >= m_maxTxBufferSize))
+    {
+      // there is no room for other packets
+      m_netDeviceQueue->Stop ();
+    }
 
   /** Report Buffer Status */
   DoReportBufferStatus ();
@@ -713,6 +747,16 @@ LteRlcAm::DoNotifyTxOpportunity (uint32_t bytes, uint8_t layer, uint8_t harqId, 
         }
     }
 
+  // wake the queue
+  if (m_netDeviceQueue && m_flowControl)
+    {
+      if ((m_netDeviceQueue->IsStopped ()) && (m_txonBufferSize + 1500 <= m_maxTxBufferSize))
+        {
+          m_netDeviceQueue->Wake ();
+        }
+      // notify the number of trasmitted bytes
+      m_netDeviceQueue->NotifyTransmittedBytes (packet->GetSize ());
+    }
 
   // Build RLC PDU with DataField and Header
   NS_LOG_LOGIC ("AM RLC header: " << rlcAmHeader);

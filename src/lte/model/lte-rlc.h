@@ -190,6 +190,8 @@ protected:
 
   Ptr<NetDeviceQueue> m_netDeviceQueue;
 
+  bool m_flowControl;
+
 };
 
 

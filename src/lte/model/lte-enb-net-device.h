@@ -48,6 +48,7 @@ class LteAnr;
 class LteFfrAlgorithm;
 class LteEnbComponentCarrierManager;
 class NetDeviceQueueInterface;
+class QueueItem;
 
 /**
  * \ingroup lte
@@ -259,6 +260,8 @@ private:
   Ptr<LteEnbComponentCarrierManager> m_componentCarrierManager; ///< the component carrier manager of this eNb
 
   Ptr<NetDeviceQueueInterface> m_queueInterface;
+
+  uint8_t SelectQueue (Ptr<QueueItem> item) const;
 
 }; // end of class LteEnbNetDevice
 

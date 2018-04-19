@@ -87,8 +87,8 @@ LteRlcUm::DoTransmitPdcpPdu (Ptr<Packet> p)
 {
   NS_LOG_FUNCTION (this << m_rnti << (uint32_t) m_lcid << p->GetSize ());
 
-  NS_ASSERT (m_netDeviceQueue != 0);
-  if (m_netDeviceQueue->IsStopped ())
+//   NS_ASSERT (m_netDeviceQueue != 0);
+  if (m_netDeviceQueue && m_flowControl && (m_netDeviceQueue->IsStopped ()))
     {
       NS_LOG_DEBUG ("DoTransmit with queue stopped");
     }
@@ -110,10 +110,16 @@ LteRlcUm::DoTransmitPdcpPdu (Ptr<Packet> p)
       m_txBufferSize += p->GetSize ();
       NS_LOG_LOGIC ("NumOfBuffers = " << m_txBuffer.size() );
       NS_LOG_LOGIC ("txBufferSize = " << m_txBufferSize);
-      m_netDeviceQueue->NotifyQueuedBytes (p->GetSize ());
+      // notify queued bytes
+      if (m_netDeviceQueue && m_flowControl)
+        {
+          m_netDeviceQueue->NotifyQueuedBytes (p->GetSize ());
+        }
     }
   else
     {
+      m_drop++;
+//       std::cout << "Dropped " << (int) m_drop << std::endl;
       // Discard full RLC SDU
       NS_LOG_LOGIC ("TxBuffer is full. RLC SDU discarded");
       NS_LOG_LOGIC ("MaxTxBufferSize = " << m_maxTxBufferSize);
@@ -121,7 +127,7 @@ LteRlcUm::DoTransmitPdcpPdu (Ptr<Packet> p)
       NS_LOG_LOGIC ("packet size     = " << p->GetSize ());
     }
 
-  if (m_txBufferSize + 1500 >= m_maxTxBufferSize)
+  if (m_netDeviceQueue && m_flowControl && (m_txBufferSize + 1500 >= m_maxTxBufferSize))
     {
       // there is no room for other packets
       m_netDeviceQueue->Stop ();
@@ -142,6 +148,8 @@ LteRlcUm::DoNotifyTxOpportunity (uint32_t bytes, uint8_t layer, uint8_t harqId, 
 {
   NS_LOG_FUNCTION (this << m_rnti << (uint32_t) m_lcid << bytes);
 
+  std::cout << bytes << " bytes slot for possible transmission" << std::endl;
+
   if (bytes <= 2)
     {
       // Stingy MAC: Header fix part is 2 bytes, we need more bytes for the data
@@ -158,6 +166,14 @@ LteRlcUm::DoNotifyTxOpportunity (uint32_t bytes, uint8_t layer, uint8_t harqId, 
   uint32_t dataFieldTotalSize = 0;
   uint32_t dataFieldAddedSize = 0;
   std::vector < Ptr<Packet> > dataField;
+
+  if ( m_txBuffer.size () == 0 )
+    {
+      if (m_netDeviceQueue && m_flowControl)
+        {
+          m_netDeviceQueue->Wake ();
+        }
+    }
 
   // Remove the first packet from the transmission buffer.
   // If only a segment of the packet is taken, then the remaining is given back later
@@ -388,12 +404,15 @@ LteRlcUm::DoNotifyTxOpportunity (uint32_t bytes, uint8_t layer, uint8_t harqId, 
     }
 
   // wake the queue
-  if ((m_netDeviceQueue->IsStopped ()) && m_txBufferSize + 1500 <= m_maxTxBufferSize)
+  if (m_netDeviceQueue && m_flowControl)
     {
-      m_netDeviceQueue->Wake ();
+      if ((m_netDeviceQueue->IsStopped ()) && (m_txBufferSize + 1500 <= m_maxTxBufferSize))
+        {
+          m_netDeviceQueue->Wake ();
+        }
+      // notify the number of trasmitted bytes
+      m_netDeviceQueue->NotifyTransmittedBytes (packet->GetSize ());
     }
-  // notify the number of trasmitted bytes
-  m_netDeviceQueue->NotifyTransmittedBytes (packet->GetSize ());
 
   rlcHeader.SetFramingInfo (framingInfo);
 
@@ -423,7 +442,7 @@ LteRlcUm::DoNotifyTxOpportunity (uint32_t bytes, uint8_t layer, uint8_t harqId, 
     }
 
   // start the queue tring to prevent future silent drop
-  if (m_netDeviceQueue->IsStopped () && (m_txBufferSize + 1500 < m_maxTxBufferSize))
+  if (m_netDeviceQueue && m_netDeviceQueue->IsStopped () && (m_txBufferSize + 1500 < m_maxTxBufferSize))
     {
       m_netDeviceQueue->Start ();
     }

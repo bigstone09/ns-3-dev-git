@@ -142,6 +142,8 @@ private:
    */
   SequenceNumber10 m_expectedSeqNumber;
 
+  uint32_t m_drop {0};
+
 };
 
 

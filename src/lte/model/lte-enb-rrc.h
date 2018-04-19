@@ -61,6 +61,8 @@ class LteSignalingRadioBearerInfo;
 class LteDataRadioBearerInfo;
 class LteEnbRrc;
 class Packet;
+class NetDeviceQueue;
+class NetDeviceQueueInterface;
 
 
 
@@ -368,6 +370,8 @@ public:
     (const uint64_t imsi, const uint16_t cellId, const uint16_t rnti,
     const State oldState, const State newState);
 
+  void SetNetDeviceQueue (Ptr<NetDeviceQueue> ndq);
+
 private:
 
   /** 
@@ -564,6 +568,8 @@ private:
 
   /// Pending start data radio bearers
   bool m_pendingStartDataRadioBearers;
+
+  Ptr<NetDeviceQueue> m_netDeviceQueue;
 
 }; // end of `class UeManager`
 
@@ -1030,6 +1036,8 @@ public:
   typedef void (*ReceiveReportTracedCallback)
     (const uint64_t imsi, const uint16_t cellId, const uint16_t rnti,
      const LteRrcSap::MeasurementReport report);
+
+  void SetNetDeviceQueueInterface (Ptr<NetDeviceQueueInterface> ndqi);
 
 private:
 
@@ -1580,6 +1588,8 @@ private:
   bool m_carriersConfigured; ///< are carriers configured
 
   std::map<uint8_t, Ptr<ComponentCarrierEnb>> m_componentCarrierPhyConf; ///< component carrier phy configuration
+
+  Ptr<NetDeviceQueueInterface> m_netDeviceQueueInterface;
 
 }; // end of `class LteEnbRrc`
 

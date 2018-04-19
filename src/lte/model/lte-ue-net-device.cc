@@ -304,8 +304,10 @@ LteUeNetDevice::NotifyNewAggregate (void)
         {
           m_queueInterface = ndqi;
           // flow control configuration
-	  m_queueInterface->SetTxQueuesN (11);
-          m_rrc->SetNetDeviceQueueInterface (ndqi);
+          // m_queueInterface->SetLateTxQueuesCreation (false);
+//           m_queueInterface->SetTxQueuesN (11);
+          m_nas->SetNetDeviceQueueInterface (m_queueInterface);
+          m_rrc->SetNetDeviceQueueInterface (m_queueInterface);
         }
     }
   LteNetDevice::NotifyNewAggregate ();
