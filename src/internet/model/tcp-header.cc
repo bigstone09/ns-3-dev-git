@@ -432,10 +432,10 @@ TcpHeader::Deserialize (Buffer::Iterator start)
   // Do checksum
   if (m_calcChecksum)
     {
-      uint16_t headerChecksum = CalculateHeaderChecksum (start.GetSize ());
-      i = start;
-      uint16_t checksum = i.CalculateIpChecksum (start.GetSize (), headerChecksum);
-      m_goodChecksum = (checksum == 0);
+//       uint16_t headerChecksum = CalculateHeaderChecksum (start.GetSize ());
+//       i = start;
+//       uint16_t checksum = i.CalculateIpChecksum (start.GetSize (), headerChecksum);
+//       m_goodChecksum = (checksum == 0);
     }
 
   return GetSerializedSize ();

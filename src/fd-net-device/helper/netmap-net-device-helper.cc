@@ -454,7 +454,7 @@ NetmapNetDeviceHelper::NetmapOpen (int fd, Ptr<NetmapNetDevice> device) const
       NS_FATAL_ERROR ("Switching failed");
     }
 
-//   usleep (1000000);
+  usleep (3000000);
 
   // memory mapping
   uint8_t *memory = (uint8_t *) mmap (0, nmr.nr_memsize, PROT_WRITE | PROT_READ,

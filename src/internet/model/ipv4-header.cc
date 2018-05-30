@@ -464,11 +464,11 @@ Ipv4Header::Deserialize (Buffer::Iterator start)
 
   if (m_calcChecksum) 
     {
-      i = start;
-      uint16_t checksum = i.CalculateIpChecksum (headerSize);
-      NS_LOG_LOGIC ("checksum=" <<checksum);
-
-      m_goodChecksum = (checksum == 0);
+//       i = start;
+//       uint16_t checksum = i.CalculateIpChecksum (headerSize);
+//       NS_LOG_LOGIC ("checksum=" <<checksum);
+// 
+//       m_goodChecksum = (checksum == 0);
     }
   return GetSerializedSize ();
 }

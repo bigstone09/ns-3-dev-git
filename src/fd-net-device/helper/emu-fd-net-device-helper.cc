@@ -140,6 +140,13 @@ EmuFdNetDeviceHelper::SetFileDescriptor (Ptr<FdNetDevice> device) const
       NS_FATAL_ERROR ("EmuFdNetDeviceHelper::SetFileDescriptor (): Can't get interface flags");
     }
 
+//   static const int32_t sock_qdisc_bypass = 1;
+//   int32_t sock_qdisc_ret = setsockopt(fd, SOL_PACKET, PACKET_QDISC_BYPASS, &sock_qdisc_bypass, sizeof(sock_qdisc_bypass));
+//
+//   if (sock_qdisc_ret == -1) {
+//       NS_LOG_ERROR ("Cannot use the qdisc bypass option");
+//   }
+
   //
   // This device only works if the underlying interface is up in promiscuous
   // mode.  We could have turned it on in the socket creator, but the situation
